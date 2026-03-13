@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Song {
+  id           String        @id @default(uuid())
+  title        String
+  originalKey  String
+  author       String?
+  createdAt    DateTime      @default(now())
+
+  versions     SongVersion[]
+  setlistSongs SetlistSong[]
+
+  @@map("songs")
+}
+
+model SongVersion {
+  id            String   @id @default(uuid())
+  songId        String
+  structureJson Json
+  createdAt     DateTime @default(now())
+
+  song          Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([songId])
+  @@map("song_versions")
+}
+
+model Setlist {
+  id        String       @id @default(uuid())
+  name      String
+  date      DateTime?
+  createdAt DateTime     @default(now())
+
+  songs     SetlistSong[]
+
+  @@map("setlists")
+}
+
+model SetlistSong {
+  id        String  @id @default(uuid())
+  setlistId String
+  songId    String
+  key       String
+  position  Int
+
+  setlist   Setlist @relation(fields: [setlistId], references: [id], onDelete: Cascade)
+  song      Song    @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@map("setlist_songs")
+}
