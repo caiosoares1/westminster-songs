@@ -1,19 +1,19 @@
-import { IsString, IsNotEmpty, IsOptional, IsObject } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsObject } from 'class-validator';
 
 export class CreateSongDto {
-    @IsString()
-    @IsNotEmpty()
-    title: string;
+  @IsString()
+  @IsNotEmpty()
+  title: string;
 
-    @IsString()
-    @IsNotEmpty()
-    originalKey: string;
+  @IsString()
+  @IsNotEmpty()
+  originalKey: string;
 
-    @IsString()
-    @IsNotEmpty()
-    author?: string;
+  @IsString()
+  @IsOptional()
+  author?: string;
 
-    @IsObject()
-    @IsNotEmpty()
-    structureJson: object;
+  @IsObject()
+  @IsNotEmpty()
+  structureJson: object;
 }
