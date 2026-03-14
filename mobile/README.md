@@ -1,50 +1,37 @@
-# Welcome to your Expo app 👋
+# Westminster Songs Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App Expo Router para listar, criar, visualizar e importar musicas com OCR.
 
-## Get started
+## Requisitos
 
-1. Install dependencies
+- Node.js 20+
+- Backend rodando (porta 3000 por padrao)
 
-   ```bash
-   npm install
-   ```
+## Configuracao
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Copie o ambiente:
 
 ```bash
-npm run reset-project
+cp .env.example .env
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Defina:
 
-## Learn more
+- `EXPO_PUBLIC_API_URL` (ex.: `http://192.168.0.20:3000`)
+- `EXPO_PUBLIC_API_PORT` (ex.: `3000`)
 
-To learn more about developing your project with Expo, look at the following resources:
+> Em Android emulator, se nao definir URL explicita, o app tenta `10.0.2.2:3000`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Instalacao e execucao
 
-## Join the community
+```bash
+npm install
+npm run start
+```
 
-Join our community of developers creating universal apps.
+## Fluxo MVP
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Tab `MUSICAS`: lista + busca + categorias
+- Botao `+`: criar musica manualmente
+- Botao camera: importar musica por OCR
+- Detalhe da musica: visualizacao + transposicao

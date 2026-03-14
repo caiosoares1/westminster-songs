@@ -5,49 +5,59 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const AppColors = {
+  background: '#F2F6F6',
+  surface: '#FFFFFF',
+  surfaceMuted: '#E2EBEB',
+  primary: '#1F8884',
+  primaryStrong: '#196D69',
+  primarySoft: '#CFE2E1',
+  text: '#121A33',
+  textMuted: '#60758B',
+  border: '#C7D8D8',
+  tabInactive: '#9CADC0',
+  shadow: 'rgba(17, 34, 57, 0.12)',
+};
+
+const tintColorLight = AppColors.primary;
+const tintColorDark = '#CFE2E1';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: AppColors.text,
+    background: AppColors.background,
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: AppColors.textMuted,
+    tabIconDefault: AppColors.tabInactive,
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#E8EEF2',
+    background: '#0F171A',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#8FA5B8',
+    tabIconDefault: '#8FA5B8',
     tabIconSelected: tintColorDark,
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'normal',
+    sans: 'sans-serif',
     serif: 'serif',
-    rounded: 'normal',
+    rounded: 'sans-serif-medium',
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
+    sans: "'Avenir Next', 'Segoe UI', sans-serif",
+    serif: "'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, serif",
+    rounded: "'Avenir Next', 'Segoe UI', sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });

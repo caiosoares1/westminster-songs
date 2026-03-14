@@ -1,98 +1,131 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { AppColors, Fonts } from '@/constants/theme';
 
-export default function HomeScreen() {
+const MOCK_PLAYLISTS = [
+  { id: '1', name: 'Culto Domingo Manha', songs: 12, status: 'Pronta' },
+  { id: '2', name: 'Ensaio do Coro', songs: 8, status: 'Pronta' },
+  { id: '3', name: 'Especial Jovens', songs: 0, status: 'Em montagem' },
+] as const;
+
+export default function PlaylistsScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.pageTitle}>Playlists</Text>
+        <Text style={styles.pageSubtitle}>Fase 3 em andamento. Base pronta para setlists.</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.list}>
+          {MOCK_PLAYLISTS.map((playlist) => (
+            <View key={playlist.id} style={styles.card}>
+              <View style={styles.cardIcon}>
+                <MaterialIcons name="queue-music" size={24} color={AppColors.primary} />
+              </View>
+
+              <View style={styles.cardTextBlock}>
+                <Text style={styles.cardTitle}>{playlist.name}</Text>
+                <Text style={styles.cardMeta}>{playlist.songs} musicas</Text>
+              </View>
+
+              <Text style={styles.cardStatus}>{playlist.status}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Pressable style={styles.primaryButton} disabled>
+          <MaterialIcons name="playlist-add" size={20} color={AppColors.surface} />
+          <Text style={styles.primaryButtonText}>Criar playlist (em breve)</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: AppColors.background,
+  },
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 36,
+    gap: 12,
+  },
+  pageTitle: {
+    color: AppColors.text,
+    fontFamily: Fonts.serif,
+    fontWeight: '700',
+    fontSize: 28,
+  },
+  pageSubtitle: {
+    color: AppColors.textMuted,
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  list: {
+    marginTop: 8,
+    gap: 10,
+  },
+  card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.surface,
+    minHeight: 86,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.surfaceMuted,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  cardTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  cardTitle: {
+    color: AppColors.text,
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cardMeta: {
+    color: AppColors.primaryStrong,
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+  },
+  cardStatus: {
+    color: AppColors.primary,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  primaryButton: {
+    marginTop: 10,
+    borderRadius: 14,
+    minHeight: 52,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    opacity: 0.7,
+  },
+  primaryButtonText: {
+    color: AppColors.surface,
+    fontFamily: Fonts.serif,
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
