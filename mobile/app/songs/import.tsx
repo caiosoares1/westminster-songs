@@ -12,6 +12,8 @@ import {
   parseOcrTokensToStructure,
 } from '@/music/ocrParser';
 import { extractTextFromImageBase64 } from '@/services/ocr';
+import { normalizeKey } from '@/music/chordParser';
+import { apiErrorMessage } from '@/services/api';
 import { createSong } from '@/services/songs';
 import { parseBracketContentToStructure, structureToBracketContent } from '@/utils/song-structure';
 
@@ -148,7 +150,7 @@ export default function ImportSongScreen() {
       applyParsedStructure(structureJson);
     } catch (error) {
       console.error('Error processing OCR image:', error);
-      Alert.alert('Erro OCR', 'Nao foi possivel extrair texto da imagem.');
+      Alert.alert('Erro OCR', apiErrorMessage(error, 'Nao foi possivel extrair texto da imagem.'));
     } finally {
       setProcessingImage(false);
     }
@@ -157,6 +159,12 @@ export default function ImportSongScreen() {
   const handleSave = async () => {
     if (!canSave) {
       Alert.alert('Dados incompletos', 'Preencha titulo, tonalidade e revise o conteudo antes de salvar.');
+      return;
+    }
+
+    const key = normalizeKey(originalKey);
+    if (!key) {
+      Alert.alert('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
       return;
     }
 
@@ -174,7 +182,7 @@ export default function ImportSongScreen() {
       const createdSong = await createSong({
         title: title.trim(),
         author: author.trim() || undefined,
-        originalKey: originalKey.trim(),
+        originalKey: key,
         structureJson,
       });
 
@@ -184,7 +192,7 @@ export default function ImportSongScreen() {
       });
     } catch (error) {
       console.error('Error creating imported song:', error);
-      Alert.alert('Erro', 'Nao foi possivel salvar a musica importada.');
+      Alert.alert('Erro', apiErrorMessage(error, 'Nao foi possivel salvar a musica importada.'));
     } finally {
       setSaving(false);
     }

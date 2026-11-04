@@ -1,55 +1,97 @@
+import { canonicalizeChord, isChordToken } from '@/music/chordParser';
 import type { SongItem, SongSection, SongStructure } from '@/services/songs';
 
 const CHORD_TAG_REGEX = /\[([^\]]+)\]/g;
-const SECTION_LINE_REGEX = /^\[(.+)\]$/;
+// A single bracket pair holding the whole line, e.g. "[Refrão]" (not "[C] [G]").
+const SECTION_LINE_REGEX = /^\[([^[\]]+)\]$/;
 
+// Section names (accents stripped, lower-case) -> canonical type.
 const SECTION_NORMALIZATION_MAP: Record<string, string> = {
   verse: 'verse',
   verso: 'verse',
+  estrofe: 'verse',
   chorus: 'chorus',
   refrao: 'chorus',
+  coro: 'chorus',
   bridge: 'bridge',
   ponte: 'bridge',
   intro: 'intro',
+  introducao: 'intro',
   outro: 'outro',
+  final: 'outro',
+  finalizacao: 'outro',
   prechorus: 'prechorus',
   'pre-chorus': 'prechorus',
   'pre chorus': 'prechorus',
   'pre-refrao': 'prechorus',
   'pre refrao': 'prechorus',
+  prerefrao: 'prechorus',
+  interlude: 'interlude',
+  interludio: 'interlude',
+  solo: 'solo',
+  tag: 'tag',
 };
 
 const SECTION_DISPLAY_NAMES: Record<string, string> = {
-  verse: 'Verse',
-  chorus: 'Chorus',
-  bridge: 'Bridge',
-  intro: 'Intro',
-  outro: 'Outro',
-  prechorus: 'Pre-Chorus',
+  verse: 'Verso',
+  chorus: 'Refrão',
+  bridge: 'Ponte',
+  intro: 'Introdução',
+  outro: 'Final',
+  prechorus: 'Pré-refrão',
+  interlude: 'Interlúdio',
+  solo: 'Solo',
+  tag: 'Tag',
 };
+
+const SECTION_WITH_NUMBER_REGEX = /^(.*?)(?:\s*(\d+))?$/;
 
 function stripAccents(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function formatSectionHeading(sectionType: string): string {
-  const normalizedType = normalizeSectionType(sectionType);
-  const mapped = SECTION_DISPLAY_NAMES[normalizedType];
-  if (mapped) {
-    return mapped;
-  }
-
-  return sectionType
-    .trim()
-    .replace(/[_-]+/g, ' ')
+function splitSectionName(rawSection: string): { name: string; number: string | null } {
+  const cleaned = stripAccents(rawSection.trim().toLowerCase())
+    .replace(/:$/, '')
+    .replace(/^\[|\]$/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase()) || 'Verse';
+    .trim();
+  const match = cleaned.match(SECTION_WITH_NUMBER_REGEX);
+  return { name: (match?.[1] ?? cleaned).trim(), number: match?.[2] ?? null };
 }
 
+/**
+ * Canonical section type, keeping the number: "Verso 2" -> "verse 2",
+ * "[Refrão]" -> "chorus". Unknown names are kept (lower-case, no accents).
+ */
 export function normalizeSectionType(rawSection: string): string {
-  const normalized = stripAccents(rawSection.trim().toLowerCase());
-  const mappedType = SECTION_NORMALIZATION_MAP[normalized] ?? normalized;
-  return mappedType || 'verse';
+  const { name, number } = splitSectionName(rawSection);
+  const mappedType = SECTION_NORMALIZATION_MAP[name] ?? name;
+  if (!mappedType) {
+    return 'verse';
+  }
+  return number ? `${mappedType} ${number}` : mappedType;
+}
+
+/** True when the text names a known section, e.g. "Refrão", "[Verso 2]:". */
+export function isKnownSectionHeading(text: string): boolean {
+  const { name } = splitSectionName(text);
+  return name in SECTION_NORMALIZATION_MAP;
+}
+
+/** Human label for a stored section type: "verse 2" -> "Verso 2". */
+export function formatSectionHeading(sectionType: string): string {
+  const { name, number } = splitSectionName(sectionType);
+  const canonical = SECTION_NORMALIZATION_MAP[name] ?? name;
+  const label =
+    SECTION_DISPLAY_NAMES[canonical] ??
+    (sectionType
+      .trim()
+      .replace(/\s*\d+$/, '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/^\w/, (character) => character.toUpperCase()) || 'Verso');
+  return number ? `${label} ${number}` : label;
 }
 
 export function parseLineToItems(line: string): SongItem[] {
@@ -69,7 +111,7 @@ export function parseLineToItems(line: string): SongItem[] {
       items.push({ type: 'lyric', value: lyricChunk });
     }
 
-    const chordValue = match[1].trim();
+    const chordValue = canonicalizeChord(match[1].trim());
     if (chordValue) {
       items.push({ type: 'chord', value: chordValue });
     }
@@ -111,7 +153,8 @@ export function parseBracketContentToStructure(content: string): SongStructure {
     }
 
     const sectionMatch = trimmed.match(SECTION_LINE_REGEX);
-    if (sectionMatch) {
+    // "[G]" alone is a chord-only line, not a section called "g".
+    if (sectionMatch && !isChordToken(sectionMatch[1])) {
       currentSection = { type: normalizeSectionType(sectionMatch[1]), lines: [] };
       sections.push(currentSection);
       continue;
@@ -147,4 +190,30 @@ export function structureToBracketContent(structureJson: SongStructure): string 
   }
 
   return lines.join('\n');
+}
+
+/** Runtime check for data coming from the API (older rows may be malformed). */
+export function isSongStructure(value: unknown): value is SongStructure {
+  if (!value || typeof value !== 'object') return false;
+  const { sections } = value as { sections?: unknown };
+  return (
+    Array.isArray(sections) &&
+    sections.every(
+      (section) =>
+        section &&
+        typeof section.type === 'string' &&
+        Array.isArray(section.lines) &&
+        section.lines.every(
+          (line: { items?: unknown }) =>
+            line &&
+            Array.isArray(line.items) &&
+            line.items.every(
+              (item: { type?: unknown; value?: unknown }) =>
+                item &&
+                (item.type === 'chord' || item.type === 'lyric') &&
+                typeof item.value === 'string',
+            ),
+        ),
+    )
+  );
 }

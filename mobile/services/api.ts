@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -103,3 +103,27 @@ if (__DEV__) {
 }
 
 export default api;
+
+/**
+ * Best user-facing message for a failed request: the API's validation
+ * message when there is one, otherwise `fallback`.
+ */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (!isAxiosError(error)) {
+    return fallback;
+  }
+
+  if (!error.response) {
+    return 'Nao foi possivel conectar ao servidor. Verifique a conexao e tente de novo.';
+  }
+
+  const message = (error.response.data as { message?: unknown } | undefined)?.message;
+  if (Array.isArray(message) && message.length > 0) {
+    return message.join('\n');
+  }
+  if (typeof message === 'string' && message) {
+    return message;
+  }
+
+  return fallback;
+}
