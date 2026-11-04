@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
-import tesseract from 'node-tesseract-ocr';
+import { recognize, TesseractNotFoundError } from './tesseract';
 
 export interface OcrToken {
   text: string;
@@ -54,11 +54,11 @@ export class OcrService {
     }
 
     try {
-      const fullText = await tesseract.recognize(imageBuffer, {
+      const fullText = await recognize(imageBuffer, {
         lang: (language ?? this.defaultLanguage).toLowerCase(),
         oem: 1,
         psm: 6,
-        preserve_interword_spaces: '1',
+        config: { preserve_interword_spaces: '1' },
       });
 
       const trimmedText = fullText.trim();
@@ -75,12 +75,13 @@ export class OcrService {
         throw error;
       }
 
-      const message = error instanceof Error ? error.message : 'Unknown OCR error';
-      if (message.toLowerCase().includes('tesseract')) {
+      if (error instanceof TesseractNotFoundError) {
         throw new InternalServerErrorException(
           'Tesseract binary not available. Install Tesseract OCR on the server and try again.'
         );
       }
+
+      const message = error instanceof Error ? error.message : 'Unknown OCR error';
 
       throw new InternalServerErrorException(`OCR failed: ${message}`);
     }
