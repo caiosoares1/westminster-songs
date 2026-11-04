@@ -3,10 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OcrModule } from './ocr/ocr.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SetlistsModule } from './setlists/setlists.module';
 import { SongsModule } from './songs/songs.module';
 
 @Module({
-  imports: [PrismaModule, SongsModule, OcrModule],
+  imports: [PrismaModule, SongsModule, SetlistsModule, OcrModule],
   controllers: [AppController],
   providers: [AppService],
 })

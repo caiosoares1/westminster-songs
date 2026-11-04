@@ -9,6 +9,9 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+/** A song key: root, optional accidental and optional minor, e.g. C, F#, Bb, Am. */
+export const SONG_KEY_REGEX = /^[A-G](#|b)?m?$/;
+
 export class SongItemDto {
   @IsIn(['chord', 'lyric'])
   type: 'chord' | 'lyric';

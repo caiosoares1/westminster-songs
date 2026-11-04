@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="songs/create" options={{ headerShown: false }} />
         <Stack.Screen name="songs/import" options={{ headerShown: false }} />
         <Stack.Screen name="songs/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="setlists/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

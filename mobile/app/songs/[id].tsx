@@ -11,8 +11,10 @@ import { getSong, type Song } from '@/services/songs';
 
 export default function SongDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const params = useLocalSearchParams<{ id: string | string[]; key?: string | string[] }>();
   const songId = Array.isArray(params.id) ? params.id[0] : params.id;
+  // Opened from a setlist: start in the key chosen for it.
+  const startKey = Array.isArray(params.key) ? params.key[0] : params.key;
 
   const [song, setSong] = useState<Song | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +26,7 @@ export default function SongDetailScreen() {
     transposeUp,
     transposeDown,
     resetTranspose,
-  } = useTranspose(song?.originalKey ?? 'C');
+  } = useTranspose(song?.originalKey ?? 'C', song ? startKey : undefined);
 
   // Refetch whenever the screen regains focus, e.g. after editing the song.
   useFocusEffect(

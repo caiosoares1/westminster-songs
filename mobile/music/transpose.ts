@@ -87,6 +87,23 @@ export function transposeChord(chord: string, steps: number, accidental?: Accide
   return `${transposedRoot}${suffix}${transposedBass ? `/${transposedBass}` : ''}`;
 }
 
+/**
+ * Semitones to go from one key to another, in -5..+6 (the shorter way), e.g.
+ * C -> D = 2, C -> Bb = -2. Returns 0 when either key can't be parsed.
+ */
+export function semitonesBetween(fromKey: string, toKey: string): number {
+  const from = parseChord(fromKey);
+  const to = parseChord(toKey);
+  const fromIndex = from ? NOTE_INDEX[from.root] : undefined;
+  const toIndex = to ? NOTE_INDEX[to.root] : undefined;
+  if (fromIndex === undefined || toIndex === undefined) {
+    return 0;
+  }
+
+  const diff = normalizeSteps(toIndex - fromIndex);
+  return diff > 6 ? diff - 12 : diff;
+}
+
 /** The new key, spelled the way that key is conventionally written. */
 export function getTransposedKey(originalKey: string, steps: number): string {
   if (steps === 0) {

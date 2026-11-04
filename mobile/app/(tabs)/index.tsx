@@ -1,43 +1,158 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppColors, Fonts } from '@/constants/theme';
+import { apiErrorMessage } from '@/services/api';
+import { createSetlist, getSetlists, type SetlistListItem } from '@/services/setlists';
+import { showMessage } from '@/utils/dialog';
+import { formatServiceDate, parseServiceDateInput } from '@/utils/service-date';
 
-const MOCK_PLAYLISTS = [
-  { id: '1', name: 'Culto Domingo Manha', songs: 12, status: 'Pronta' },
-  { id: '2', name: 'Ensaio do Coro', songs: 8, status: 'Pronta' },
-  { id: '3', name: 'Especial Jovens', songs: 0, status: 'Em montagem' },
-] as const;
+function songCountLabel(count: number): string {
+  return count === 1 ? '1 musica' : `${count} musicas`;
+}
 
 export default function PlaylistsScreen() {
+  const router = useRouter();
+  const [setlists, setSetlists] = useState<SetlistListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setSetlists(await getSetlists());
+    } catch (loadError) {
+      console.error('Error fetching setlists:', loadError);
+      setError(apiErrorMessage(loadError, 'Nao foi possivel carregar as playlists.'));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const handleCreate = async () => {
+    if (!name.trim()) {
+      showMessage('Nome obrigatorio', 'De um nome para a playlist, ex. Culto de Domingo.');
+      return;
+    }
+
+    const isoDate = date.trim() ? parseServiceDateInput(date) : null;
+    if (date.trim() && !isoDate) {
+      showMessage('Data invalida', 'Use o formato dd/mm/aaaa, ex. 08/11/2026.');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      const created = await createSetlist({ name: name.trim(), date: isoDate });
+      setName('');
+      setDate('');
+      router.push({ pathname: '/setlists/[id]', params: { id: created.id } });
+    } catch (createError) {
+      console.error('Error creating setlist:', createError);
+      showMessage('Erro', apiErrorMessage(createError, 'Nao foi possivel criar a playlist.'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void load();
+            }}
+            tintColor={AppColors.primary}
+          />
+        }>
         <Text style={styles.pageTitle}>Playlists</Text>
-        <Text style={styles.pageSubtitle}>Fase 3 em andamento. Base pronta para setlists.</Text>
+        <Text style={styles.pageSubtitle}>
+          Monte o repertorio do culto ou do ensaio, com o tom de cada musica.
+        </Text>
+
+        <View style={styles.createBox}>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Nome, ex. Culto de Domingo"
+            placeholderTextColor={AppColors.textMuted}
+            returnKeyType="done"
+          />
+          <TextInput
+            style={styles.input}
+            value={date}
+            onChangeText={setDate}
+            placeholder="Data (opcional), dd/mm/aaaa"
+            placeholderTextColor={AppColors.textMuted}
+            keyboardType="numbers-and-punctuation"
+          />
+          <Pressable
+            style={[styles.primaryButton, creating && styles.buttonDisabled]}
+            onPress={() => void handleCreate()}
+            disabled={creating}>
+            <MaterialIcons name="playlist-add" size={20} color={AppColors.surface} />
+            <Text style={styles.primaryButtonText}>{creating ? 'Criando...' : 'Criar playlist'}</Text>
+          </Pressable>
+        </View>
+
+        {loading ? <ActivityIndicator color={AppColors.primary} /> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {!loading && !error && setlists.length === 0 ? (
+          <Text style={styles.emptyText}>Nenhuma playlist ainda. Crie a primeira acima.</Text>
+        ) : null}
 
         <View style={styles.list}>
-          {MOCK_PLAYLISTS.map((playlist) => (
-            <View key={playlist.id} style={styles.card}>
+          {setlists.map((setlist) => (
+            <Pressable
+              key={setlist.id}
+              style={styles.card}
+              onPress={() => router.push({ pathname: '/setlists/[id]', params: { id: setlist.id } })}>
               <View style={styles.cardIcon}>
                 <MaterialIcons name="queue-music" size={24} color={AppColors.primary} />
               </View>
 
               <View style={styles.cardTextBlock}>
-                <Text style={styles.cardTitle}>{playlist.name}</Text>
-                <Text style={styles.cardMeta}>{playlist.songs} musicas</Text>
+                <Text style={styles.cardTitle}>{setlist.name}</Text>
+                <Text style={styles.cardMeta}>
+                  {songCountLabel(setlist.songCount)}
+                  {setlist.date ? ` · ${formatServiceDate(setlist.date)}` : ''}
+                </Text>
               </View>
 
-              <Text style={styles.cardStatus}>{playlist.status}</Text>
-            </View>
+              <MaterialIcons name="chevron-right" size={24} color={AppColors.textMuted} />
+            </Pressable>
           ))}
         </View>
-
-        <Pressable style={styles.primaryButton} disabled>
-          <MaterialIcons name="playlist-add" size={20} color={AppColors.surface} />
-          <Text style={styles.primaryButtonText}>Criar playlist (em breve)</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -105,14 +220,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 14,
   },
-  cardStatus: {
-    color: AppColors.primary,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   primaryButton: {
-    marginTop: 10,
     borderRadius: 14,
     minHeight: 52,
     backgroundColor: AppColors.primary,
@@ -120,7 +228,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    opacity: 0.7,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  createBox: {
+    marginTop: 6,
+    gap: 10,
+  },
+  input: {
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.surface,
+    paddingHorizontal: 14,
+    color: AppColors.text,
+    fontFamily: Fonts.serif,
+    fontSize: 16,
+  },
+  errorText: {
+    color: AppColors.danger,
+    fontSize: 15,
+  },
+  emptyText: {
+    color: AppColors.textMuted,
+    fontSize: 15,
+    marginTop: 8,
   },
   primaryButtonText: {
     color: AppColors.surface,
