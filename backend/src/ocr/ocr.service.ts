@@ -38,6 +38,28 @@ function isLikelyBase64Payload(value: string): boolean {
   return /^[A-Za-z0-9+/=\r\n]+$/.test(value);
 }
 
+/**
+ * Checks the file signature. Besides rejecting garbage early with a 400,
+ * this matters for safety: when stdin is not an image, Tesseract treats its
+ * content as a list of file paths and would OCR files from the server.
+ */
+export function isSupportedImage(buffer: Buffer): boolean {
+  const startsWith = (bytes: number[], offset = 0) =>
+    buffer.length >= offset + bytes.length &&
+    bytes.every((byte, index) => buffer[offset + index] === byte);
+  const ascii = (text: string) => [...text].map((char) => char.charCodeAt(0));
+
+  return (
+    startsWith([0xff, 0xd8, 0xff]) || // JPEG
+    startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) || // PNG
+    startsWith(ascii('GIF8')) ||
+    startsWith(ascii('BM')) ||
+    startsWith([0x49, 0x49, 0x2a, 0x00]) || // TIFF (little-endian)
+    startsWith([0x4d, 0x4d, 0x00, 0x2a]) || // TIFF (big-endian)
+    (startsWith(ascii('RIFF')) && startsWith(ascii('WEBP'), 8))
+  );
+}
+
 @Injectable()
 export class OcrService {
   private readonly defaultLanguage = process.env.OCR_DEFAULT_LANG ?? 'por+eng';
@@ -63,6 +85,12 @@ export class OcrService {
 
     if (imageBuffer.length === 0) {
       throw new BadRequestException('Invalid imageBase64 payload');
+    }
+
+    if (!isSupportedImage(imageBuffer)) {
+      throw new BadRequestException(
+        'Unsupported image format. Send a JPEG, PNG, WebP, GIF, BMP or TIFF image.',
+      );
     }
 
     try {

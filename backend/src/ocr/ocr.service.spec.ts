@@ -12,7 +12,10 @@ jest.mock('./tesseract', () => {
 });
 
 const recognizeMock = recognize as jest.MockedFunction<typeof recognize>;
-const PNG_BASE64 = Buffer.from('fake-image').toString('base64');
+const PNG_BYTES = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
+]);
+const PNG_BASE64 = PNG_BYTES.toString('base64');
 
 describe('OcrService', () => {
   const service = new OcrService();
@@ -29,7 +32,7 @@ describe('OcrService', () => {
 
     expect(result).toEqual({ fullText: 'C  G\nCastelo forte', tokens: [] });
     expect(recognizeMock).toHaveBeenCalledWith(
-      Buffer.from('fake-image'),
+      PNG_BYTES,
       expect.objectContaining({ lang: 'por', psm: 6 }),
     );
   });
@@ -38,6 +41,15 @@ describe('OcrService', () => {
     await expect(
       service.extractFromBase64('não é base64!'),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(recognizeMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects payloads that are not images, without calling tesseract', async () => {
+    // Tesseract would read a non-image stdin as a list of file paths.
+    const filePathList = Buffer.from('/etc/passwd\n').toString('base64');
+    await expect(service.extractFromBase64(filePathList)).rejects.toThrow(
+      'Unsupported image format',
+    );
     expect(recognizeMock).not.toHaveBeenCalled();
   });
 
