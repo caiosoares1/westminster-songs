@@ -17,6 +17,7 @@ export const AppColors = {
   border: '#C7D8D8',
   tabInactive: '#9CADC0',
   shadow: 'rgba(17, 34, 57, 0.12)',
+  danger: '#B3261E',
 };
 
 const tintColorLight = AppColors.primary;

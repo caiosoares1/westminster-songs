@@ -1,78 +1,242 @@
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppColors, Fonts } from '@/constants/theme';
 import { normalizeKey } from '@/music/chordParser';
+import { chordsAboveLyricsToBracket, transposeEditorContent } from '@/music/editor';
 import { apiErrorMessage } from '@/services/api';
-import { createSong } from '@/services/songs';
-import { parseBracketContentToStructure } from '@/utils/song-structure';
+import {
+  createSong,
+  deleteSong,
+  getSong,
+  updateSong,
+  type SongStructure,
+  type SongVersion,
+} from '@/services/songs';
+import { confirmAction, showMessage } from '@/utils/dialog';
+import {
+  isSongStructure,
+  parseBracketContentToStructure,
+  structureToBracketContent,
+} from '@/utils/song-structure';
 
 const QUICK_CHORDS = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Am', 'Em', 'Dm'] as const;
 
-const INITIAL_CONTENT = `[Verse]
-[C] Is this the real life?
-[Am] Is this just fantasy?
+const INITIAL_CONTENT = `[Verso]
+[C]Escreva a letra aqui e co[G]loque cada acorde
+[Am]entre colchetes, antes da [F]sílaba em que ele entra.
+
+[Refrão]
+[F]Use [G]Refrão, Ponte, Intro... [C]como títulos.
 `;
 
-export default function CreateSongScreen() {
+const FORMAT_HELP =
+  'Coloque cada acorde entre colchetes, antes da sílaba: [C]Castelo [G]forte.\n\n' +
+  'Títulos de seção ficam sozinhos na linha: [Verso], [Refrão], [Ponte].\n\n' +
+  'Colou uma cifra de site, com os acordes na linha de cima? Toque em "Acordes automáticos" para converter.';
+
+function formatVersionDate(iso: string): string {
+  const date = new Date(iso);
+  return `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+export default function SongFormScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const songId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const isEditing = Boolean(songId);
+
   const [title, setTitle] = useState('');
   const [originalKey, setOriginalKey] = useState('');
   const [author, setAuthor] = useState('');
-  const [content, setContent] = useState(INITIAL_CONTENT);
+  const [content, setContent] = useState(isEditing ? '' : INITIAL_CONTENT);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(isEditing);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [versions, setVersions] = useState<SongVersion[]>([]);
+  const [savedStructure, setSavedStructure] = useState<SongStructure | null>(null);
+  const [panel, setPanel] = useState<'none' | 'transpose' | 'history'>('none');
+
+  useEffect(() => {
+    if (!songId) {
+      return;
+    }
+
+    let isMounted = true;
+    getSong(songId)
+      .then((song) => {
+        if (!isMounted) return;
+        const latest = song.versions[0]?.structureJson;
+        setTitle(song.title);
+        setAuthor(song.author ?? '');
+        setOriginalKey(song.originalKey);
+        setVersions(song.versions);
+        if (isSongStructure(latest)) {
+          setSavedStructure(latest);
+          setContent(structureToBracketContent(latest));
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading song for edit:', error);
+        if (isMounted) setLoadError(apiErrorMessage(error, 'Nao foi possivel carregar a musica.'));
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [songId]);
+
+  const validVersions = useMemo(
+    () => versions.filter((version) => isSongStructure(version.structureJson)),
+    [versions],
+  );
 
   const handleInsertChord = (chord: string) => {
-    setContent((previous) => `${previous}${previous.endsWith('\n') || previous.length === 0 ? '' : ' '}[${chord}] `);
+    setContent(
+      (previous) =>
+        `${previous}${previous.endsWith('\n') || previous.length === 0 ? '' : ' '}[${chord}] `,
+    );
+  };
+
+  const handleAutoChords = () => {
+    try {
+      setContent(chordsAboveLyricsToBracket(content));
+    } catch {
+      showMessage('Nada para converter', 'Cole a cifra com os acordes na linha de cima da letra.');
+    }
+  };
+
+  const handleTranspose = (steps: number) => {
+    const key = normalizeKey(originalKey);
+    if (!key) {
+      showMessage('Tom invalido', 'Preencha o tom original antes de transpor.');
+      return;
+    }
+
+    try {
+      const result = transposeEditorContent(content, key, steps);
+      setContent(result.content);
+      setOriginalKey(result.key);
+    } catch {
+      showMessage('Erro', 'Nao foi possivel interpretar a letra/cifras.');
+    }
+  };
+
+  const handleRestoreVersion = async (version: SongVersion) => {
+    const confirmed = await confirmAction(
+      'Restaurar versão',
+      `Substituir o conteúdo do editor pela versão de ${formatVersionDate(version.createdAt)}? Ela só é salva quando você tocar em Salvar.`,
+      'Restaurar',
+    );
+    if (confirmed && isSongStructure(version.structureJson)) {
+      setContent(structureToBracketContent(version.structureJson));
+      setPanel('none');
+    }
   };
 
   const handleSave = async () => {
     if (!title.trim() || !originalKey.trim() || !content.trim()) {
-      Alert.alert('Erro', 'Titulo, tonalidade e letra sao obrigatorios.');
+      showMessage('Erro', 'Titulo, tonalidade e letra sao obrigatorios.');
       return;
     }
 
     const key = normalizeKey(originalKey);
     if (!key) {
-      Alert.alert('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
+      showMessage('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
       return;
     }
 
-    let structureJson: ReturnType<typeof parseBracketContentToStructure>;
+    let structureJson: SongStructure;
     try {
       structureJson = parseBracketContentToStructure(content);
     } catch (error) {
       console.error('Error parsing content:', error);
-      Alert.alert('Erro', 'Nao foi possivel interpretar a letra/cifras.');
+      showMessage('Erro', 'Nao foi possivel interpretar a letra/cifras.');
       return;
     }
 
     try {
       setSaving(true);
-      await createSong({
-        title: title.trim(),
-        originalKey: key,
-        author: author.trim() || undefined,
-        structureJson,
-      });
+      if (songId) {
+        // Only send the structure when it changed: each one becomes a new version.
+        const structureChanged = JSON.stringify(structureJson) !== JSON.stringify(savedStructure);
+        await updateSong(songId, {
+          title: title.trim(),
+          originalKey: key,
+          author: author.trim(),
+          ...(structureChanged ? { structureJson } : {}),
+        });
+      } else {
+        await createSong({
+          title: title.trim(),
+          originalKey: key,
+          author: author.trim() || undefined,
+          structureJson,
+        });
+      }
       router.back();
     } catch (error) {
-      console.error('Error creating song:', error);
-      Alert.alert('Erro', apiErrorMessage(error, 'Nao foi possivel criar a musica.'));
+      console.error('Error saving song:', error);
+      showMessage('Erro', apiErrorMessage(error, 'Nao foi possivel salvar a musica.'));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleFormatHelp = () => {
-    Alert.alert(
-      'Como formatar',
-      'Use [Verse], [Chorus] e acordes entre colchetes, ex: [C] Eu te louvo.'
+  const handleDelete = async () => {
+    if (!songId) return;
+    const confirmed = await confirmAction(
+      'Excluir música',
+      `"${title || 'Esta música'}" e todo o histórico de versões serão apagados. Isso não pode ser desfeito.`,
+      'Excluir',
+      true,
     );
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await deleteSong(songId);
+      router.dismissTo('/songs');
+    } catch (error) {
+      console.error('Error deleting song:', error);
+      showMessage('Erro', apiErrorMessage(error, 'Nao foi possivel excluir a musica.'));
+      setDeleting(false);
+    }
   };
+
+  if (loading || loadError) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          {loadError ? (
+            <Text style={styles.errorText}>{loadError}</Text>
+          ) : (
+            <ActivityIndicator size="large" color={AppColors.primary} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const busy = saving || deleting;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -81,31 +245,35 @@ export default function CreateSongScreen() {
           <MaterialIcons name="close" size={34} color={AppColors.text} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Adicionar/Editar Musica</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Editar Musica' : 'Nova Musica'}</Text>
 
-        <Pressable onPress={handleSave} disabled={saving}>
-          <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
+        <Pressable onPress={handleSave} disabled={busy}>
+          <Text style={[styles.saveText, busy && styles.saveTextDisabled]}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Pressable style={styles.importShortcut} onPress={() => router.push('/songs/import')}>
-          <MaterialIcons name="photo-camera" size={24} color={AppColors.primary} />
-          <View style={styles.importShortcutTextBlock}>
-            <Text style={styles.importShortcutTitle}>Importar por OCR</Text>
-            <Text style={styles.importShortcutSubtitle}>Escaneie uma folha e revise antes de salvar.</Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color={AppColors.primary} />
-        </Pressable>
+        {!isEditing ? (
+          <Pressable style={styles.importShortcut} onPress={() => router.push('/songs/import')}>
+            <MaterialIcons name="photo-camera" size={24} color={AppColors.primary} />
+            <View style={styles.importShortcutTextBlock}>
+              <Text style={styles.importShortcutTitle}>Importar por OCR</Text>
+              <Text style={styles.importShortcutSubtitle}>
+                Escaneie uma folha e revise antes de salvar.
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={AppColors.primary} />
+          </Pressable>
+        ) : null}
 
         <Text style={styles.label}>TITULO DA MUSICA</Text>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
-          placeholder="ex. Bohemian Rhapsody"
+          placeholder="ex. Castelo Forte"
           placeholderTextColor={AppColors.textMuted}
         />
 
@@ -114,7 +282,7 @@ export default function CreateSongScreen() {
           style={styles.input}
           value={author}
           onChangeText={setAuthor}
-          placeholder="e.g. Queen"
+          placeholder="ex. Martinho Lutero"
           placeholderTextColor={AppColors.textMuted}
         />
 
@@ -123,13 +291,15 @@ export default function CreateSongScreen() {
           style={styles.input}
           value={originalKey}
           onChangeText={setOriginalKey}
-          placeholder="ex. C, Dm, F#"
+          placeholder="ex. C, Dm, F# ou Dó, Ré menor"
           placeholderTextColor={AppColors.textMuted}
         />
 
         <View style={styles.contentHeader}>
           <Text style={styles.label}>LETRA & CIFRAS</Text>
-          <Pressable onPress={handleFormatHelp} style={styles.helpButton}>
+          <Pressable
+            onPress={() => showMessage('Como formatar', FORMAT_HELP)}
+            style={styles.helpButton}>
             <MaterialIcons name="help-outline" size={16} color={AppColors.primary} />
             <Text style={styles.helpButtonText}>Como formatar</Text>
           </Pressable>
@@ -155,25 +325,78 @@ export default function CreateSongScreen() {
             multiline
             value={content}
             onChangeText={setContent}
-            placeholder="[C] Is this the real life?"
+            placeholder="[C]Castelo forte é [G]nosso Deus"
             placeholderTextColor={AppColors.textMuted}
           />
         </View>
+
+        {isEditing ? (
+          <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={busy}>
+            <MaterialIcons name="delete-outline" size={22} color={AppColors.danger} />
+            <Text style={styles.deleteButtonText}>
+              {deleting ? 'Excluindo...' : 'Excluir musica'}
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
+      {panel === 'transpose' ? (
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Transpor a cifra ({originalKey || 'sem tom'})</Text>
+          <View style={styles.panelRow}>
+            <Pressable style={styles.panelButton} onPress={() => handleTranspose(-1)}>
+              <Text style={styles.panelButtonText}>-1</Text>
+            </Pressable>
+            <Pressable style={styles.panelButton} onPress={() => handleTranspose(1)}>
+              <Text style={styles.panelButtonText}>+1</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {panel === 'history' ? (
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Versões salvas</Text>
+          {validVersions.length === 0 ? (
+            <Text style={styles.panelEmpty}>Nenhuma versão salva ainda.</Text>
+          ) : (
+            <ScrollView style={styles.historyList}>
+              {validVersions.map((version, index) => (
+                <Pressable
+                  key={version.id}
+                  style={styles.historyItem}
+                  onPress={() => void handleRestoreVersion(version)}>
+                  <MaterialIcons name="history" size={18} color={AppColors.primary} />
+                  <Text style={styles.historyText}>
+                    {formatVersionDate(version.createdAt)}
+                    {index === 0 ? ' (atual)' : ''}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      ) : null}
+
       <View style={styles.bottomTools}>
-        <Pressable style={styles.toolPill}>
+        <Pressable style={styles.toolPill} onPress={handleAutoChords}>
           <MaterialIcons name="music-note" size={21} color={AppColors.primary} />
-          <Text style={styles.toolText}>Acordes Automaticos</Text>
+          <Text style={styles.toolText}>Acordes automaticos</Text>
         </Pressable>
-        <Pressable style={styles.toolPill}>
+        <Pressable
+          style={[styles.toolPill, panel === 'transpose' && styles.toolPillActive]}
+          onPress={() => setPanel(panel === 'transpose' ? 'none' : 'transpose')}>
           <MaterialIcons name="swap-vert" size={21} color={AppColors.primary} />
           <Text style={styles.toolText}>Transpor</Text>
         </Pressable>
-        <Pressable style={styles.toolPill}>
-          <MaterialIcons name="history" size={21} color={AppColors.primary} />
-          <Text style={styles.toolText}>Historico</Text>
-        </Pressable>
+        {isEditing ? (
+          <Pressable
+            style={[styles.toolPill, panel === 'history' && styles.toolPillActive]}
+            onPress={() => setPanel(panel === 'history' ? 'none' : 'history')}>
+            <MaterialIcons name="history" size={21} color={AppColors.primary} />
+            <Text style={styles.toolText}>Historico</Text>
+          </Pressable>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -183,6 +406,85 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AppColors.background,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorText: {
+    color: AppColors.danger,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  deleteButton: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: AppColors.danger,
+  },
+  deleteButtonText: {
+    color: AppColors.danger,
+    fontFamily: Fonts.serif,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  panel: {
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+    backgroundColor: AppColors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  panelTitle: {
+    color: AppColors.text,
+    fontFamily: Fonts.serif,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  panelRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  panelButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primary,
+  },
+  panelButtonText: {
+    color: AppColors.surface,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  panelEmpty: {
+    color: AppColors.textMuted,
+    fontSize: 14,
+  },
+  historyList: {
+    maxHeight: 180,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  historyText: {
+    color: AppColors.text,
+    fontSize: 15,
+  },
+  toolPillActive: {
+    backgroundColor: AppColors.primarySoft,
   },
   header: {
     height: 82,

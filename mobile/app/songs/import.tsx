@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,6 +14,7 @@ import {
 import { extractTextFromImageBase64 } from '@/services/ocr';
 import { normalizeKey } from '@/music/chordParser';
 import { apiErrorMessage } from '@/services/api';
+import { showMessage } from '@/utils/dialog';
 import { createSong } from '@/services/songs';
 import { parseBracketContentToStructure, structureToBracketContent } from '@/utils/song-structure';
 
@@ -72,13 +73,13 @@ export default function ImportSongScreen() {
       if (source === 'gallery') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('Permissao negada', 'Permita acesso a galeria para continuar.');
+          showMessage('Permissao negada', 'Permita acesso a galeria para continuar.');
           return;
         }
       } else {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('Permissao negada', 'Permita acesso a camera para continuar.');
+          showMessage('Permissao negada', 'Permita acesso a camera para continuar.');
           return;
         }
       }
@@ -105,17 +106,17 @@ export default function ImportSongScreen() {
       setSelectedImageBase64(selectedAsset.base64 ?? null);
 
       if (!selectedAsset.base64) {
-        Alert.alert('Falha ao ler imagem', 'A imagem foi selecionada, mas sem conteudo base64 para OCR.');
+        showMessage('Falha ao ler imagem', 'A imagem foi selecionada, mas sem conteudo base64 para OCR.');
       }
     } catch (error) {
       console.error(`Error selecting image from ${source}:`, error);
-      Alert.alert('Erro', 'Nao foi possivel selecionar a imagem.');
+      showMessage('Erro', 'Nao foi possivel selecionar a imagem.');
     }
   };
 
   const handleProcessOcrText = () => {
     if (!canProcessText) {
-      Alert.alert('OCR vazio', 'Cole o texto do OCR antes de processar.');
+      showMessage('OCR vazio', 'Cole o texto do OCR antes de processar.');
       return;
     }
 
@@ -125,7 +126,7 @@ export default function ImportSongScreen() {
       applyParsedStructure(structureJson);
     } catch (error) {
       console.error('Error processing OCR text:', error);
-      Alert.alert('Erro', 'Nao foi possivel interpretar o texto OCR.');
+      showMessage('Erro', 'Nao foi possivel interpretar o texto OCR.');
     } finally {
       setProcessingText(false);
     }
@@ -133,7 +134,7 @@ export default function ImportSongScreen() {
 
   const handleProcessOcrImage = async () => {
     if (!canProcessImage || !selectedImageBase64) {
-      Alert.alert('Imagem ausente', 'Selecione uma imagem antes de processar.');
+      showMessage('Imagem ausente', 'Selecione uma imagem antes de processar.');
       return;
     }
 
@@ -150,7 +151,7 @@ export default function ImportSongScreen() {
       applyParsedStructure(structureJson);
     } catch (error) {
       console.error('Error processing OCR image:', error);
-      Alert.alert('Erro OCR', apiErrorMessage(error, 'Nao foi possivel extrair texto da imagem.'));
+      showMessage('Erro OCR', apiErrorMessage(error, 'Nao foi possivel extrair texto da imagem.'));
     } finally {
       setProcessingImage(false);
     }
@@ -158,13 +159,13 @@ export default function ImportSongScreen() {
 
   const handleSave = async () => {
     if (!canSave) {
-      Alert.alert('Dados incompletos', 'Preencha titulo, tonalidade e revise o conteudo antes de salvar.');
+      showMessage('Dados incompletos', 'Preencha titulo, tonalidade e revise o conteudo antes de salvar.');
       return;
     }
 
     const key = normalizeKey(originalKey);
     if (!key) {
-      Alert.alert('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
+      showMessage('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
       return;
     }
 
@@ -173,7 +174,7 @@ export default function ImportSongScreen() {
       structureJson = parseBracketContentToStructure(reviewContent);
     } catch (error) {
       console.error('Error parsing reviewed content:', error);
-      Alert.alert('Erro', 'A revisao contem linhas invalidas.');
+      showMessage('Erro', 'A revisao contem linhas invalidas.');
       return;
     }
 
@@ -192,7 +193,7 @@ export default function ImportSongScreen() {
       });
     } catch (error) {
       console.error('Error creating imported song:', error);
-      Alert.alert('Erro', apiErrorMessage(error, 'Nao foi possivel salvar a musica importada.'));
+      showMessage('Erro', apiErrorMessage(error, 'Nao foi possivel salvar a musica importada.'));
     } finally {
       setSaving(false);
     }

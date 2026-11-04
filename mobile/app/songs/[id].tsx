@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,46 +26,48 @@ export default function SongDetailScreen() {
     resetTranspose,
   } = useTranspose(song?.originalKey ?? 'C');
 
-  useEffect(() => {
-    if (!songId) {
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchSong = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getSong(songId);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSong(data);
-      } catch (fetchError) {
-        console.error('Error fetching song:', fetchError);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSong(null);
-        setError('Nao foi possivel carregar a musica.');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+  // Refetch whenever the screen regains focus, e.g. after editing the song.
+  useFocusEffect(
+    useCallback(() => {
+      if (!songId) {
+        return;
       }
-    };
 
-    void fetchSong();
+      let isMounted = true;
 
-    return () => {
-      isMounted = false;
-    };
-  }, [songId]);
+      const fetchSong = async () => {
+        try {
+          setError(null);
+          const data = await getSong(songId);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setSong(data);
+        } catch (fetchError) {
+          console.error('Error fetching song:', fetchError);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setSong(null);
+          setError('Nao foi possivel carregar a musica.');
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      };
+
+      void fetchSong();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [songId]),
+  );
 
   if (!songId) {
     return (
@@ -118,7 +120,9 @@ export default function SongDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {song.title}
         </Text>
-        <Pressable onPress={() => router.push('/songs/create')} style={styles.headerAction}>
+        <Pressable
+          onPress={() => router.push({ pathname: '/songs/create', params: { id: song.id } })}
+          style={styles.headerAction}>
           <MaterialIcons name="edit" size={27} color={AppColors.primary} />
         </Pressable>
       </View>
