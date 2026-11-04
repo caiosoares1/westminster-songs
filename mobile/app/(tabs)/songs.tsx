@@ -15,14 +15,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppColors, Fonts } from '@/constants/theme';
+import { getSetlists, type SetlistListItem } from '@/services/setlists';
 import { getSongs, type Song } from '@/services/songs';
 
 const CATEGORIES = ['Todas', 'Hinos', 'Contemporaneas', 'Corais'] as const;
-
-const RECOMMENDED_PLAYLISTS = [
-  { title: 'Culto de Domingo', count: 12 },
-  { title: 'Favoritas do Coro', count: 8 },
-] as const;
 
 type Category = (typeof CATEGORIES)[number];
 
@@ -53,14 +49,20 @@ export default function SongsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setlists, setSetlists] = useState<SetlistListItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category>('Todas');
 
   const loadSongs = useCallback(async () => {
     try {
       setError(null);
-      const data = await getSongs();
+      const [data, setlistData] = await Promise.all([
+        getSongs(),
+        // Playlists are a nice-to-have here: don't fail the song list over them.
+        getSetlists().catch(() => [] as SetlistListItem[]),
+      ]);
       setSongs(data);
+      setSetlists(setlistData);
     } catch (loadError) {
       console.error('Error fetching songs:', loadError);
       setError('Nao foi possivel carregar as musicas.');
@@ -181,18 +183,27 @@ export default function SongsScreen() {
             </Link>
           )}
           ListFooterComponent={
-            <View style={styles.playlistsBlock}>
-              <Text style={styles.sectionTitle}>Playlists Recomendadas</Text>
-              <View style={styles.playlistsRow}>
-                {RECOMMENDED_PLAYLISTS.map((playlist) => (
-                  <View key={playlist.title} style={styles.playlistCard}>
-                    <View style={styles.playlistOverlay} />
-                    <Text style={styles.playlistTitle}>{playlist.title}</Text>
-                    <Text style={styles.playlistCount}>{playlist.count} musicas</Text>
-                  </View>
-                ))}
+            setlists.length > 0 ? (
+              <View style={styles.playlistsBlock}>
+                <Text style={styles.sectionTitle}>Playlists</Text>
+                <View style={styles.playlistsRow}>
+                  {setlists.slice(0, 2).map((setlist) => (
+                    <Link
+                      key={setlist.id}
+                      href={{ pathname: '/setlists/[id]', params: { id: setlist.id } }}
+                      asChild>
+                      <Pressable style={styles.playlistCard}>
+                        <View style={styles.playlistOverlay} />
+                        <Text style={styles.playlistTitle}>{setlist.name}</Text>
+                        <Text style={styles.playlistCount}>
+                          {setlist.songCount === 1 ? '1 musica' : `${setlist.songCount} musicas`}
+                        </Text>
+                      </Pressable>
+                    </Link>
+                  ))}
+                </View>
               </View>
-            </View>
+            ) : undefined
           }
         />
 

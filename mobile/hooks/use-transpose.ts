@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { getTransposedKey } from '@/music/transpose';
+import { getTransposedKey, semitonesBetween } from '@/music/transpose';
 
-export function useTranspose(originalKey: string) {
-  const [steps, setSteps] = useState(0);
+/**
+ * Transposition state for a song. `startKey` opens it already transposed,
+ * e.g. in the key chosen for a setlist; Reset goes back to that key.
+ */
+export function useTranspose(originalKey: string, startKey?: string) {
+  const initialSteps = startKey ? semitonesBetween(originalKey, startKey) : 0;
+  const [steps, setSteps] = useState(initialSteps);
 
   useEffect(() => {
-    setSteps(0);
-  }, [originalKey]);
+    setSteps(initialSteps);
+  }, [initialSteps]);
 
   const currentKey = getTransposedKey(originalKey, steps);
 
@@ -20,8 +25,8 @@ export function useTranspose(originalKey: string) {
   }, []);
 
   const resetTranspose = useCallback(() => {
-    setSteps(0);
-  }, []);
+    setSteps(initialSteps);
+  }, [initialSteps]);
 
   return {
     steps,

@@ -8,7 +8,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { SongStructureDto } from './song-structure.dto';
+import { SONG_KEY_REGEX, SongStructureDto } from './song-structure.dto';
 
 export class CreateSongDto {
   @IsString()
@@ -17,7 +17,7 @@ export class CreateSongDto {
   title: string;
 
   @IsString()
-  @Matches(/^[A-G](#|b)?m?$/, {
+  @Matches(SONG_KEY_REGEX, {
     message: 'originalKey must be a key like "C", "F#", "Bb" or "Am"',
   })
   originalKey: string;
