@@ -10,8 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { Link, useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -409,7 +408,7 @@ const styles = StyleSheet.create({
     borderColor: AppColors.border,
   },
   playlistOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#214243',
     opacity: 0.4,
   },

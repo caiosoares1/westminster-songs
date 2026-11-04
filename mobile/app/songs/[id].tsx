@@ -28,8 +28,6 @@ export default function SongDetailScreen() {
 
   useEffect(() => {
     if (!songId) {
-      setError('ID da musica invalido.');
-      setLoading(false);
       return;
     }
 
@@ -68,6 +66,16 @@ export default function SongDetailScreen() {
       isMounted = false;
     };
   }, [songId]);
+
+  if (!songId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>ID da musica invalido.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
