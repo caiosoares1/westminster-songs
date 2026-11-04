@@ -49,7 +49,11 @@ describe('SongsService', () => {
     prisma.song.create.mockResolvedValue({ id: 'song-1' });
     prisma.song.findUnique.mockResolvedValue({ id: 'song-1', versions: [] });
 
-    await service.create({ title: 'Castelo Forte', originalKey: 'C', structureJson });
+    await service.create({
+      title: 'Castelo Forte',
+      originalKey: 'C',
+      structureJson,
+    });
 
     expect(prisma.song.create).toHaveBeenCalledWith({
       data: { title: 'Castelo Forte', originalKey: 'C', author: undefined },
@@ -62,11 +66,15 @@ describe('SongsService', () => {
   it('throws NotFoundException for an unknown song', async () => {
     prisma.song.findUnique.mockResolvedValue(null);
 
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(NotFoundException);
-    await expect(service.update('missing', { title: 'x' })).rejects.toBeInstanceOf(
+    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    await expect(service.remove('missing')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.update('missing', { title: 'x' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.remove('missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('adds a new version only when structureJson changes', async () => {

@@ -6,7 +6,9 @@ import { PrismaClient } from '@prisma/client';
 function getDatabaseUrl(): string {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is not set. Configure backend/.env before starting the API.');
+    throw new Error(
+      'DATABASE_URL is not set. Configure backend/.env before starting the API.',
+    );
   }
 
   return databaseUrl;

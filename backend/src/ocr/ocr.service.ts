@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { recognize, TesseractNotFoundError } from './tesseract';
 
 export interface OcrToken {
@@ -20,7 +24,9 @@ function normalizeBase64Payload(base64Input: string): string {
     throw new BadRequestException('imageBase64 is empty');
   }
 
-  const dataUriPrefixMatch = trimmedInput.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,/);
+  const dataUriPrefixMatch = trimmedInput.match(
+    /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
+  );
   if (dataUriPrefixMatch) {
     return trimmedInput.slice(dataUriPrefixMatch[0].length);
   }
@@ -36,8 +42,14 @@ function isLikelyBase64Payload(value: string): boolean {
 export class OcrService {
   private readonly defaultLanguage = process.env.OCR_DEFAULT_LANG ?? 'por+eng';
 
-  async extractFromBase64(imageBase64: string, language?: string): Promise<OcrExtractResponse> {
-    const normalizedBase64 = normalizeBase64Payload(imageBase64).replace(/\s+/g, '');
+  async extractFromBase64(
+    imageBase64: string,
+    language?: string,
+  ): Promise<OcrExtractResponse> {
+    const normalizedBase64 = normalizeBase64Payload(imageBase64).replace(
+      /\s+/g,
+      '',
+    );
     if (!isLikelyBase64Payload(normalizedBase64)) {
       throw new BadRequestException('Invalid imageBase64 payload');
     }
@@ -77,11 +89,12 @@ export class OcrService {
 
       if (error instanceof TesseractNotFoundError) {
         throw new InternalServerErrorException(
-          'Tesseract binary not available. Install Tesseract OCR on the server and try again.'
+          'Tesseract binary not available. Install Tesseract OCR on the server and try again.',
         );
       }
 
-      const message = error instanceof Error ? error.message : 'Unknown OCR error';
+      const message =
+        error instanceof Error ? error.message : 'Unknown OCR error';
 
       throw new InternalServerErrorException(`OCR failed: ${message}`);
     }

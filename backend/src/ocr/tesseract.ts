@@ -31,7 +31,10 @@ function assertSafe(name: string, value: string): void {
  * Uses execFile (no shell), so arguments are never interpreted by a shell,
  * which avoids the command-injection issue of `node-tesseract-ocr`.
  */
-export async function recognize(image: Buffer, options: TesseractOptions): Promise<string> {
+export async function recognize(
+  image: Buffer,
+  options: TesseractOptions,
+): Promise<string> {
   const binary = options.binary ?? process.env.TESSERACT_BIN ?? 'tesseract';
 
   assertSafe('lang', options.lang);
@@ -48,7 +51,11 @@ export async function recognize(image: Buffer, options: TesseractOptions): Promi
     const child = execFile(
       binary,
       args,
-      { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: options.timeoutMs ?? 60_000 },
+      {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: options.timeoutMs ?? 60_000,
+      },
       (error, stdout, stderr) => {
         if (error) {
           if ((error as NodeJS.ErrnoException).code === 'ENOENT') {

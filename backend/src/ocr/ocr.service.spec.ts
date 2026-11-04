@@ -1,9 +1,13 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { OcrService } from './ocr.service';
 import { recognize, TesseractNotFoundError } from './tesseract';
 
 jest.mock('./tesseract', () => {
-  const actual = jest.requireActual<typeof import('./tesseract')>('./tesseract');
+  const actual =
+    jest.requireActual<typeof import('./tesseract')>('./tesseract');
   return { ...actual, recognize: jest.fn() };
 });
 
@@ -18,7 +22,10 @@ describe('OcrService', () => {
   it('strips a data URI prefix and returns the recognized text', async () => {
     recognizeMock.mockResolvedValue('  C  G\nCastelo forte\n');
 
-    const result = await service.extractFromBase64(`data:image/png;base64,${PNG_BASE64}`, 'por');
+    const result = await service.extractFromBase64(
+      `data:image/png;base64,${PNG_BASE64}`,
+      'por',
+    );
 
     expect(result).toEqual({ fullText: 'C  G\nCastelo forte', tokens: [] });
     expect(recognizeMock).toHaveBeenCalledWith(
@@ -28,9 +35,9 @@ describe('OcrService', () => {
   });
 
   it('rejects invalid base64', async () => {
-    await expect(service.extractFromBase64('não é base64!')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.extractFromBase64('não é base64!'),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(recognizeMock).not.toHaveBeenCalled();
   });
 

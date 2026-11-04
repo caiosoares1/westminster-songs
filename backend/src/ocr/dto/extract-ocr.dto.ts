@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class ExtractOcrDto {
   @IsString()
@@ -9,7 +15,8 @@ export class ExtractOcrDto {
   @IsOptional()
   @IsString()
   @Matches(/^[a-z]{3}(?:\+[a-z]{3})*$/i, {
-    message: 'language must follow tesseract format, e.g. "por", "eng", or "por+eng"',
+    message:
+      'language must follow tesseract format, e.g. "por", "eng", or "por+eng"',
   })
   language?: string;
 }
