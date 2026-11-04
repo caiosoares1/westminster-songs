@@ -5,46 +5,37 @@ import ChordLine from '@/components/ChordLine';
 import { AppColors, Fonts } from '@/constants/theme';
 import { transposeStructure } from '@/music/transpose';
 import type { SongStructure } from '@/services/songs';
+import { formatSectionHeading, isSongStructure } from '@/utils/song-structure';
 
 interface SongViewerProps {
   structureJson: SongStructure;
   transposeSteps?: number;
+  originalKey?: string;
 }
 
-const SECTION_LABELS: Record<string, string> = {
-  verse: 'Verso',
-  chorus: 'Refrao',
-  bridge: 'Ponte',
-  intro: 'Introducao',
-  outro: 'Final',
-  prechorus: 'Pre-refrao',
-};
-
-function formatSectionLabel(sectionType: string): string {
-  const normalizedType = sectionType.trim().toLowerCase().replace(/[_\s-]+/g, '');
-  const mappedLabel = SECTION_LABELS[normalizedType];
-
-  if (mappedLabel) {
-    return `[${mappedLabel}]`;
-  }
-
-  const fallback = sectionType
-    .trim()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-
-  return `[${fallback || 'Secao'}]`;
-}
-
-export default function SongViewer({ structureJson, transposeSteps = 0 }: SongViewerProps) {
+export default function SongViewer({
+  structureJson,
+  transposeSteps = 0,
+  originalKey,
+}: SongViewerProps) {
   const structureToRender = useMemo(() => {
-    if (transposeSteps === 0) {
+    if (!isSongStructure(structureJson) || transposeSteps === 0) {
       return structureJson;
     }
 
-    return transposeStructure(structureJson, transposeSteps);
-  }, [structureJson, transposeSteps]);
+    return transposeStructure(structureJson, transposeSteps, originalKey);
+  }, [structureJson, transposeSteps, originalKey]);
+
+  if (!isSongStructure(structureToRender)) {
+    return (
+      <View style={styles.invalid}>
+        <Text style={styles.invalidText}>
+          Esta cifra está num formato inválido e não pode ser exibida. Edite a música para
+          corrigi-la.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -56,15 +47,11 @@ export default function SongViewer({ structureJson, transposeSteps = 0 }: SongVi
           key={`section-${sectionIndex}`}
           style={[
             styles.section,
-            section.type.toLowerCase().includes('chorus') && styles.highlightedSection,
+            section.type.toLowerCase().startsWith('chorus') && styles.highlightedSection,
           ]}>
-          <Text style={styles.sectionTitle}>{formatSectionLabel(section.type)}</Text>
-
+          <Text style={styles.sectionTitle}>[{formatSectionHeading(section.type)}]</Text>
           {section.lines.map((line, lineIndex) => (
-            <ChordLine
-              key={`line-${sectionIndex}-${lineIndex}`}
-              line={line}
-            />
+            <ChordLine key={`line-${sectionIndex}-${lineIndex}`} line={line} />
           ))}
         </View>
       ))}
@@ -91,6 +78,16 @@ const styles = StyleSheet.create({
     borderLeftColor: AppColors.primarySoft,
     borderRadius: 12,
     padding: 14,
+  },
+  invalid: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  invalidText: {
+    color: AppColors.text,
+    fontSize: 15,
+    lineHeight: 22,
   },
   sectionTitle: {
     color: AppColors.primaryStrong,

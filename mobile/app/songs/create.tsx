@@ -5,6 +5,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppColors, Fonts } from '@/constants/theme';
+import { normalizeKey } from '@/music/chordParser';
+import { apiErrorMessage } from '@/services/api';
 import { createSong } from '@/services/songs';
 import { parseBracketContentToStructure } from '@/utils/song-structure';
 
@@ -33,6 +35,12 @@ export default function CreateSongScreen() {
       return;
     }
 
+    const key = normalizeKey(originalKey);
+    if (!key) {
+      Alert.alert('Tom invalido', 'Use um tom como C, F#, Bb, Am ou Do, Re menor.');
+      return;
+    }
+
     let structureJson: ReturnType<typeof parseBracketContentToStructure>;
     try {
       structureJson = parseBracketContentToStructure(content);
@@ -46,14 +54,14 @@ export default function CreateSongScreen() {
       setSaving(true);
       await createSong({
         title: title.trim(),
-        originalKey: originalKey.trim(),
+        originalKey: key,
         author: author.trim() || undefined,
         structureJson,
       });
       router.back();
     } catch (error) {
       console.error('Error creating song:', error);
-      Alert.alert('Erro', 'Nao foi possivel criar a musica.');
+      Alert.alert('Erro', apiErrorMessage(error, 'Nao foi possivel criar a musica.'));
     } finally {
       setSaving(false);
     }

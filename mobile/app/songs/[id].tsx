@@ -183,7 +183,11 @@ export default function SongDetailScreen() {
 
       <View style={styles.songContent}>
         {structureJson ? (
-          <SongViewer structureJson={structureJson} transposeSteps={transpose} />
+          <SongViewer
+            structureJson={structureJson}
+            transposeSteps={transpose}
+            originalKey={song.originalKey}
+          />
         ) : (
           <Text style={styles.emptyText}>Sem versao de estrutura para esta musica.</Text>
         )}

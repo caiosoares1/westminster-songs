@@ -1,7 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSongDto } from './dto/create-song.dto';
+import { SongStructureDto } from './dto/song-structure.dto';
 import { UpdateSongDto } from './dto/update-song.dto';
+
+/** Validated DTO instance -> plain JSON value for the Json column. */
+function toJson(structure: SongStructureDto): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(structure)) as Prisma.InputJsonValue;
+}
 
 @Injectable()
 export class SongsService {
@@ -20,7 +27,7 @@ export class SongsService {
       await tx.songVersion.create({
         data: {
           songId: song.id,
-          structureJson: dto.structureJson,
+          structureJson: toJson(dto.structureJson),
         },
       });
 
@@ -86,7 +93,7 @@ export class SongsService {
         await tx.songVersion.create({
           data: {
             songId: id,
-            structureJson,
+            structureJson: toJson(structureJson),
           },
         });
       }

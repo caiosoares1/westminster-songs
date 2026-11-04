@@ -1,11 +1,16 @@
 import {
+  canonicalizeChord,
   isChordLine,
   isChordToken,
   normalizeChordToken,
   parseChord,
 } from '@/music/chordParser';
 import type { SongItem, SongLine, SongSection, SongStructure } from '@/services/songs';
-import { normalizeSectionType, parseLineToItems } from '@/utils/song-structure';
+import {
+  isKnownSectionHeading,
+  normalizeSectionType,
+  parseLineToItems,
+} from '@/utils/song-structure';
 
 export interface OcrToken {
   text: string;
@@ -14,9 +19,6 @@ export interface OcrToken {
   width: number;
   height: number;
 }
-
-const SECTION_HEADER_REGEX =
-  /^\[?(verse|verso|chorus|refrao|bridge|ponte|intro|outro|pre[- ]?chorus|pre[- ]?refrao)(?:\s+\d+)?\]?:?$/i;
 
 interface PositionedChord {
   chord: string;
@@ -31,7 +33,7 @@ function linesFromRawText(text: string): string[] {
 }
 
 function isSectionHeaderLine(line: string): boolean {
-  return SECTION_HEADER_REGEX.test(line.trim());
+  return isKnownSectionHeading(line);
 }
 
 function extractPositionedChords(chordLine: string): PositionedChord[] {
@@ -46,7 +48,7 @@ function extractPositionedChords(chordLine: string): PositionedChord[] {
     }
 
     chords.push({
-      chord: normalized,
+      chord: canonicalizeChord(normalized),
       index: match.index ?? 0,
     });
   }
@@ -130,7 +132,7 @@ function parseLinesToStructure(lines: string[]): SongStructure {
     }
 
     if (isSectionHeaderLine(trimmed)) {
-      currentSection = { type: normalizeSectionType(trimmed.replace(/[\[\]:]/g, '')), lines: [] };
+      currentSection = { type: normalizeSectionType(trimmed), lines: [] };
       sections.push(currentSection);
       index += 1;
       continue;
