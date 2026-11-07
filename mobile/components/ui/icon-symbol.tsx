@@ -18,6 +18,7 @@ const MAPPING = {
   'music.note.list': 'queue-music',
   'list.bullet': 'format-list-bulleted',
   'gearshape.fill': 'settings',
+  'person.crop.circle': 'account-circle',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',

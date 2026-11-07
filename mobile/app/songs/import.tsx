@@ -88,12 +88,12 @@ export default function ImportSongScreen() {
         source === 'gallery'
           ? await ImagePicker.launchImageLibraryAsync({
               mediaTypes: imageMediaType,
-              quality: 0.6,
+              quality: 0.8,
               base64: true,
             })
           : await ImagePicker.launchCameraAsync({
               mediaTypes: imageMediaType,
-              quality: 0.6,
+              quality: 0.8,
               base64: true,
             });
 

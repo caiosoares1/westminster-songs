@@ -102,7 +102,49 @@ if (__DEV__) {
   console.log(`[API] baseURL: ${baseURL}`);
 }
 
+// Session token, kept in memory and set by the AuthProvider.
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+/** Called when the API answers 401 (expired token or removed member). */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(undefined, (error: unknown) => {
+  const isAuthRoute = isAxiosError(error) && error.config?.url?.startsWith('/auth/');
+  if (isAxiosError(error) && error.response?.status === 401 && authToken && !isAuthRoute) {
+    onUnauthorized?.();
+  }
+  return Promise.reject(error);
+});
+
 export default api;
+
+// Known API messages, shown in Portuguese.
+const MESSAGE_TRANSLATIONS: Record<string, string> = {
+  'Invalid invite code': 'Codigo do grupo incorreto.',
+  'Email already registered': 'Este email ja tem conta. Use Entrar.',
+  'Invalid email or password': 'Email ou senha incorretos.',
+  'Only group admins can do this': 'Somente administradores do grupo podem fazer isso.',
+  'You cannot change your own account': 'Voce nao pode alterar a propria conta.',
+  'ThrottlerException: Too Many Requests': 'Muitas tentativas. Aguarde um minuto e tente de novo.',
+  'password must be at least 8 characters': 'A senha precisa ter pelo menos 8 caracteres.',
+  'email must be an email': 'Email invalido.',
+};
+
+const translate = (message: string) => MESSAGE_TRANSLATIONS[message] ?? message;
 
 /**
  * Best user-facing message for a failed request: the API's validation
@@ -119,10 +161,10 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
 
   const message = (error.response.data as { message?: unknown } | undefined)?.message;
   if (Array.isArray(message) && message.length > 0) {
-    return message.join('\n');
+    return message.map(translate).join('\n');
   }
   if (typeof message === 'string' && message) {
-    return message;
+    return translate(message);
   }
 
   return fallback;

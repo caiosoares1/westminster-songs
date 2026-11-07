@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { buildSegments } from '@/music/segments';
 import { canonicalizeChord, isChordLine, normalizeKey, parseChord } from '@/music/chordParser';
-import { parseOcrTextToStructure } from '@/music/ocrParser';
+import { parseOcrTextToStructure, repairOcrChordLine } from '@/music/ocrParser';
 import { getTransposedKey, keyAccidental, transposeChord, transposeStructure } from '@/music/transpose';
 import type { SongLine } from '@/services/songs';
 import {
@@ -136,6 +136,14 @@ Nos guarda o Senhor Jesus`;
       'Castelo forte é nosso Deus,',
     );
     assert.deepEqual(chordsOf(structure.sections[1].lines[0]), ['F', 'C', 'Dm7', 'G']);
+  });
+
+  it('repairs how Tesseract misreads a lone C, only on chord lines', () => {
+    assert.equal(repairOcrChordLine('Cc               G'), 'C                G');
+    assert.equal(repairOcrChordLine('€          G/B     Am'), 'C          G/B     Am');
+    assert.equal(repairOcrChordLine('F        G7        {'), 'F        G7        C');
+    // Lyrics stay as they are.
+    assert.equal(repairOcrChordLine('Cc de amor ( e paz'), 'Cc de amor ( e paz');
   });
 
   it('round-trips through the bracket editor format', () => {
