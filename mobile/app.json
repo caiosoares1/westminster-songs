@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Westminster Songs",
+    "slug": "westminster-songs",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "westminster",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -17,7 +17,9 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.caiosoares1.westminstersongs",
+      "versionCode": 1
     },
     "web": {
       "output": "static",
@@ -35,6 +37,15 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite escolher a foto de uma cifra para importar.",
+          "cameraPermission": "Permite fotografar uma cifra para importar.",
+          "microphonePermission": false
         }
       ]
     ],

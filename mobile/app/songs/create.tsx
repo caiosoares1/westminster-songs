@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppColors, Fonts } from '@/constants/theme';
 import { normalizeKey } from '@/music/chordParser';
 import { chordsAboveLyricsToBracket, transposeEditorContent } from '@/music/editor';
+import { useAuth } from '@/providers/auth';
 import { apiErrorMessage } from '@/services/api';
 import {
   createSong,
@@ -59,6 +60,7 @@ export default function SongFormScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const songId = Array.isArray(params.id) ? params.id[0] : params.id;
   const isEditing = Boolean(songId);
+  const { isAdmin } = useAuth();
 
   const [title, setTitle] = useState('');
   const [originalKey, setOriginalKey] = useState('');
@@ -330,7 +332,7 @@ export default function SongFormScreen() {
           />
         </View>
 
-        {isEditing ? (
+        {isEditing && isAdmin ? (
           <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={busy}>
             <MaterialIcons name="delete-outline" size={22} color={AppColors.danger} />
             <Text style={styles.deleteButtonText}>

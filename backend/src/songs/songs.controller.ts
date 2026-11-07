@@ -7,6 +7,7 @@ import {
   Body,
   Param,
 } from '@nestjs/common';
+import { AdminOnly } from '../auth/decorators';
 import { SongsService } from './songs.service';
 import { CreateSongDto } from './dto/create-song.dto';
 import { UpdateSongDto } from './dto/update-song.dto';
@@ -35,6 +36,7 @@ export class SongsController {
     return this.songsService.update(id, updateSongDto);
   }
 
+  @AdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.songsService.remove(id);

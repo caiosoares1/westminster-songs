@@ -25,10 +25,28 @@ interface PositionedChord {
   index: number;
 }
 
+// How Tesseract tends to misread a lone "C" chord.
+const OCR_C_MISREADS = new Set(['Cc', 'cC', 'CC', '€', '{', '(', '©', '¢']);
+
+/**
+ * Fixes known misreads of a chord, keeping column positions, but only when
+ * the result is a chord line (so lyrics are never touched).
+ */
+export function repairOcrChordLine(line: string): string {
+  if (!/\S/.test(line)) {
+    return line;
+  }
+
+  const repaired = line.replace(/\S+/g, (token) =>
+    OCR_C_MISREADS.has(token) ? 'C'.padEnd(token.length, ' ') : token,
+  );
+  return repaired !== line && isChordLine(repaired) ? repaired : line;
+}
+
 function linesFromRawText(text: string): string[] {
   return text
     .split(/\r?\n/)
-    .map((line) => line.trimEnd())
+    .map((line) => repairOcrChordLine(line.trimEnd()))
     .filter((line) => line.trim().length > 0);
 }
 
