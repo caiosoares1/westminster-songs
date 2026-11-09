@@ -104,4 +104,3 @@ O endereço da API que vai dentro do APK é o `EXPO_PUBLIC_API_URL` de `mobile/e
 - Para impedir novos cadastros (ex.: o código vazou), troque `GROUP_INVITE_CODE`. Quem já tem conta continua entrando.
 - Para tirar alguém do grupo: aba **Conta** → ícone de remover ao lado do nome. O acesso é cortado na hora.
 - Tentativas de login são limitadas a 10 por minuto por pessoa (pelo IP real de quem está tentando).
-- O `backend/Dockerfile` continua disponível para quem quiser rodar a API em outro lugar com Docker.

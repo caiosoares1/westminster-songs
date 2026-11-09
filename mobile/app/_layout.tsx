@@ -32,7 +32,6 @@ function RootNavigator() {
         <Stack.Screen name="songs/import" options={{ headerShown: false }} />
         <Stack.Screen name="songs/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="setlists/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
