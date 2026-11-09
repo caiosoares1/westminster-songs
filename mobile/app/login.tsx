@@ -12,13 +12,16 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { useAuth } from '@/providers/auth';
 import { apiErrorMessage } from '@/services/api';
 
 type Mode = 'login' | 'register';
 
 export default function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
@@ -67,7 +70,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logo}>
-            <MaterialIcons name="library-music" size={40} color={AppColors.surface} />
+            <MaterialIcons name="library-music" size={40} color={colors.onPrimary} />
           </View>
           <Text style={styles.title}>Westminster Songs</Text>
           <Text style={styles.subtitle}>
@@ -83,7 +86,7 @@ export default function LoginScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Seu nome"
-                placeholderTextColor={AppColors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 autoComplete="name"
                 textContentType="name"
               />
@@ -93,7 +96,7 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="Email"
-              placeholderTextColor={AppColors.textMuted}
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
@@ -104,7 +107,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder={isRegister ? 'Senha (minimo 8 caracteres)' : 'Senha'}
-              placeholderTextColor={AppColors.textMuted}
+              placeholderTextColor={colors.textMuted}
               secureTextEntry
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               textContentType={isRegister ? 'newPassword' : 'password'}
@@ -115,7 +118,7 @@ export default function LoginScreen() {
                 value={inviteCode}
                 onChangeText={setInviteCode}
                 placeholder="Codigo do grupo"
-                placeholderTextColor={AppColors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -144,8 +147,9 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AppColors.background },
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   container: {
     flexGrow: 1,
@@ -159,21 +163,21 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 22,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
   },
   title: {
     textAlign: 'center',
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 28,
     fontWeight: '700',
   },
   subtitle: {
     textAlign: 'center',
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 21,
   },
@@ -182,22 +186,22 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
-    color: AppColors.text,
+    color: colors.text,
     fontSize: 16,
   },
-  error: { color: AppColors.danger, fontSize: 14, lineHeight: 20 },
+  error: { color: colors.danger, fontSize: 14, lineHeight: 20 },
   button: {
     height: 52,
     borderRadius: 14,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: AppColors.surface, fontSize: 17, fontWeight: '700' },
+  buttonText: { color: colors.onPrimary, fontSize: 17, fontWeight: '700' },
   switch: { alignItems: 'center', paddingVertical: 8 },
-  switchText: { color: AppColors.primaryStrong, fontSize: 15, fontWeight: '600' },
+  switchText: { color: colors.primaryStrong, fontSize: 15, fontWeight: '600' },
 });

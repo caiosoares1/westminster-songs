@@ -8,6 +8,7 @@ Tudo grátis, sem cartão:
 | Banco (Postgres) | **Neon** (plano Free) | 1 GB, com backup gerenciado |
 | Leitura de fotos (OCR) | **No celular** (ML Kit do Google) | Offline; só no APK, não no Expo Go |
 | App Android | **APK compilado pelo GitHub Actions** | Link fixo; o grupo baixa e instala |
+| Versão web | **Render** (Static Site, grátis) | `https://westminster-web.onrender.com`; não gasta as horas da API |
 
 Não precisa de domínio: o endereço da API fica `https://westminster-api.onrender.com` (ou parecido).
 
@@ -82,6 +83,16 @@ O endereço da API que vai dentro do APK é o `EXPO_PUBLIC_API_URL` de `mobile/e
 **Crie a sua conta antes de mandar para o grupo:** a primeira conta vira **administrador** (pode excluir músicas e gerenciar membros na aba Conta).
 
 **Importar por foto** usa o reconhecimento de texto do próprio celular, então só funciona no APK. No Expo Go (desenvolvimento), a tela mostra um aviso e dá para colar o texto da cifra.
+
+## 5. Versão web
+
+O `render.yaml` também cria o site `westminster-web` (mesmas telas do app; só a importação por foto fica de fora, lá dá para colar o texto da cifra).
+
+1. No Render, abra o Blueprint do projeto e clique em **Manual Sync** (ou aguarde a sincronização automática depois do merge). Ele mostra o novo serviço `westminster-web`: confirme.
+2. O primeiro build leva uns 5 minutos. Depois, abra `https://westminster-web.onrender.com` e entre com a mesma conta do app.
+3. Se o Render der outro endereço ao site (quando o nome já existe, ele acrescenta letras), copie o endereço e cole em `westminster-api` → **Environment** → `CORS_ORIGINS`. Sem isso o site não consegue falar com a API.
+
+O site é reconstruído sozinho a cada push na `main` que mude algo em `mobile/`.
 
 ## Manutenção
 

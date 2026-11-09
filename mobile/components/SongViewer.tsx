@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import ChordLine from '@/components/ChordLine';
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useThemedStyles } from '@/providers/theme';
 import { transposeStructure } from '@/music/transpose';
 import type { SongStructure } from '@/services/songs';
 import { formatSectionHeading, isSongStructure } from '@/utils/song-structure';
@@ -18,6 +19,7 @@ export default function SongViewer({
   transposeSteps = 0,
   originalKey,
 }: SongViewerProps) {
+  const styles = useThemedStyles(createStyles);
   const structureToRender = useMemo(() => {
     if (!isSongStructure(structureJson) || transposeSteps === 0) {
       return structureJson;
@@ -59,7 +61,8 @@ export default function SongViewer({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -73,24 +76,24 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   highlightedSection: {
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderLeftWidth: 4,
-    borderLeftColor: AppColors.primarySoft,
+    borderLeftColor: colors.primarySoft,
     borderRadius: 12,
     padding: 10,
   },
   invalid: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   invalidText: {
-    color: AppColors.text,
+    color: colors.text,
     fontSize: 15,
     lineHeight: 22,
   },
   sectionTitle: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.serif,
     fontSize: 20,
     fontWeight: '700',

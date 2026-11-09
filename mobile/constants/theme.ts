@@ -1,17 +1,32 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+/** App colors for the light and dark themes (chosen in providers/theme). */
 
 import { Platform } from 'react-native';
 
-export const AppColors = {
+export interface AppPalette {
+  background: string;
+  surface: string;
+  surfaceMuted: string;
+  primary: string;
+  primaryStrong: string;
+  primarySoft: string;
+  /** Text and icons on top of `primary` (buttons, selected chips). */
+  onPrimary: string;
+  text: string;
+  textMuted: string;
+  border: string;
+  tabInactive: string;
+  shadow: string;
+  danger: string;
+}
+
+export const LightColors: AppPalette = {
   background: '#F2F6F6',
   surface: '#FFFFFF',
   surfaceMuted: '#E2EBEB',
   primary: '#1F8884',
   primaryStrong: '#196D69',
   primarySoft: '#CFE2E1',
+  onPrimary: '#FFFFFF',
   text: '#121A33',
   textMuted: '#60758B',
   border: '#C7D8D8',
@@ -20,26 +35,22 @@ export const AppColors = {
   danger: '#B3261E',
 };
 
-const tintColorLight = AppColors.primary;
-const tintColorDark = '#CFE2E1';
-
-export const Colors = {
-  light: {
-    text: AppColors.text,
-    background: AppColors.background,
-    tint: tintColorLight,
-    icon: AppColors.textMuted,
-    tabIconDefault: AppColors.tabInactive,
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#E8EEF2',
-    background: '#0F171A',
-    tint: tintColorDark,
-    icon: '#8FA5B8',
-    tabIconDefault: '#8FA5B8',
-    tabIconSelected: tintColorDark,
-  },
+// Dark: same teal identity, lighter so it reads on a dark background;
+// buttons get dark text for contrast.
+export const DarkColors: AppPalette = {
+  background: '#0E1517',
+  surface: '#172124',
+  surfaceMuted: '#223035',
+  primary: '#4DB6AF',
+  primaryStrong: '#7DD3CC',
+  primarySoft: '#1D3A39',
+  onPrimary: '#06201F',
+  text: '#E6EDF0',
+  textMuted: '#93A7B3',
+  border: '#2A3B40',
+  tabInactive: '#6B8290',
+  shadow: 'rgba(0, 0, 0, 0.45)',
+  danger: '#F28B82',
 };
 
 export const Fonts = Platform.select({

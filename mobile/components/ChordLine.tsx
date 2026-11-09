@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useThemedStyles } from '@/providers/theme';
 import { buildSegments } from '@/music/segments';
 import type { SongLine } from '@/services/songs';
 
@@ -9,6 +10,7 @@ interface ChordLineProps {
 }
 
 export default function ChordLine({ line }: ChordLineProps) {
+  const styles = useThemedStyles(createStyles);
   const segments = buildSegments(line);
   const hasChords = segments.some((segment) => segment.chord);
   const hasLyrics = segments.some((segment) => segment.lyric.trim());
@@ -27,7 +29,8 @@ export default function ChordLine({ line }: ChordLineProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -41,12 +44,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '700',
-    color: AppColors.primary,
+    color: colors.primary,
   },
   lyric: {
     fontFamily: Fonts.serif,
     fontSize: 17,
     lineHeight: 26,
-    color: AppColors.text,
+    color: colors.text,
   },
 });

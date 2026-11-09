@@ -5,11 +5,14 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import SongViewer from '@/components/SongViewer';
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { useTranspose } from '@/hooks/use-transpose';
 import { getSong, type Song } from '@/services/songs';
 
 export default function SongDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string | string[]; key?: string | string[] }>();
   const songId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -84,7 +87,7 @@ export default function SongDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={AppColors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -118,7 +121,7 @@ export default function SongDetailScreen() {
       {/* Compact header: the chord sheet is what matters on this screen. */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerAction} hitSlop={6}>
-          <MaterialIcons name="arrow-back" size={26} color={AppColors.primary} />
+          <MaterialIcons name="arrow-back" size={26} color={colors.primary} />
         </Pressable>
 
         <View style={styles.headerText}>
@@ -136,22 +139,22 @@ export default function SongDetailScreen() {
           onPress={() => router.push({ pathname: '/songs/create', params: { id: song.id } })}
           style={styles.headerAction}
           hitSlop={6}>
-          <MaterialIcons name="edit" size={23} color={AppColors.primary} />
+          <MaterialIcons name="edit" size={23} color={colors.primary} />
         </Pressable>
       </View>
 
       <View style={styles.keyBar}>
         <Pressable style={styles.keyButton} onPress={transposeDown} hitSlop={6}>
-          <MaterialIcons name="remove" size={20} color={AppColors.primary} />
+          <MaterialIcons name="remove" size={20} color={colors.primary} />
         </Pressable>
         <Text style={styles.keyText}>Tom: {currentKey}</Text>
         <Pressable style={styles.keyButton} onPress={transposeUp} hitSlop={6}>
-          <MaterialIcons name="add" size={20} color={AppColors.primary} />
+          <MaterialIcons name="add" size={20} color={colors.primary} />
         </Pressable>
 
         {transposed ? (
           <Pressable style={styles.resetButton} onPress={resetTranspose} hitSlop={6}>
-            <MaterialIcons name="restart-alt" size={18} color={AppColors.textMuted} />
+            <MaterialIcons name="restart-alt" size={18} color={colors.textMuted} />
             <Text style={styles.resetText}>original {song.originalKey}</Text>
           </Pressable>
         ) : null}
@@ -172,10 +175,11 @@ export default function SongDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -189,7 +193,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   emptyText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.serif,
     fontSize: 17,
   },
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
   },
   headerAction: {
     width: 40,
@@ -212,13 +216,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
   },
   headerSubtitle: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
   },
   keyBar: {
@@ -228,8 +232,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   keyButton: {
     width: 32,
@@ -237,12 +241,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   keyText: {
     minWidth: 70,
     textAlign: 'center',
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.mono,
     fontSize: 16,
     fontWeight: '700',
@@ -254,7 +258,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   resetText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
   },
   songContent: {

@@ -22,7 +22,8 @@
       "versionCode": 1
     },
     "web": {
-      "output": "static",
+      "output": "single",
+      "name": "Westminster Songs",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [

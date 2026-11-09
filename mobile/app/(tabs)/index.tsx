@@ -13,7 +13,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { apiErrorMessage } from '@/services/api';
 import { createSetlist, getSetlists, type SetlistListItem } from '@/services/setlists';
 import { showMessage } from '@/utils/dialog';
@@ -24,6 +25,8 @@ function songCountLabel(count: number): string {
 }
 
 export default function PlaylistsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const [setlists, setSetlists] = useState<SetlistListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +93,7 @@ export default function PlaylistsScreen() {
               setRefreshing(true);
               void load();
             }}
-            tintColor={AppColors.primary}
+            tintColor={colors.primary}
           />
         }>
         <Text style={styles.pageTitle}>Playlists</Text>
@@ -104,7 +107,7 @@ export default function PlaylistsScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Nome, ex. Culto de Domingo"
-            placeholderTextColor={AppColors.textMuted}
+            placeholderTextColor={colors.textMuted}
             returnKeyType="done"
           />
           <TextInput
@@ -112,19 +115,19 @@ export default function PlaylistsScreen() {
             value={date}
             onChangeText={setDate}
             placeholder="Data (opcional), dd/mm/aaaa"
-            placeholderTextColor={AppColors.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="numbers-and-punctuation"
           />
           <Pressable
             style={[styles.primaryButton, creating && styles.buttonDisabled]}
             onPress={() => void handleCreate()}
             disabled={creating}>
-            <MaterialIcons name="playlist-add" size={20} color={AppColors.surface} />
+            <MaterialIcons name="playlist-add" size={20} color={colors.onPrimary} />
             <Text style={styles.primaryButtonText}>{creating ? 'Criando...' : 'Criar playlist'}</Text>
           </Pressable>
         </View>
 
-        {loading ? <ActivityIndicator color={AppColors.primary} /> : null}
+        {loading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {!loading && !error && setlists.length === 0 ? (
@@ -138,7 +141,7 @@ export default function PlaylistsScreen() {
               style={styles.card}
               onPress={() => router.push({ pathname: '/setlists/[id]', params: { id: setlist.id } })}>
               <View style={styles.cardIcon}>
-                <MaterialIcons name="queue-music" size={24} color={AppColors.primary} />
+                <MaterialIcons name="queue-music" size={24} color={colors.primary} />
               </View>
 
               <View style={styles.cardTextBlock}>
@@ -149,7 +152,7 @@ export default function PlaylistsScreen() {
                 </Text>
               </View>
 
-              <MaterialIcons name="chevron-right" size={24} color={AppColors.textMuted} />
+              <MaterialIcons name="chevron-right" size={24} color={colors.textMuted} />
             </Pressable>
           ))}
         </View>
@@ -158,10 +161,11 @@ export default function PlaylistsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   container: {
     paddingHorizontal: 20,
@@ -170,13 +174,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   pageTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontWeight: '700',
     fontSize: 28,
   },
   pageSubtitle: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 14,
     lineHeight: 20,
@@ -188,8 +192,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     minHeight: 86,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -203,27 +207,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   cardTextBlock: {
     flex: 1,
     gap: 4,
   },
   cardTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
   },
   cardMeta: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.sans,
     fontSize: 14,
   },
   primaryButton: {
     borderRadius: 14,
     minHeight: 52,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -240,24 +244,24 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 16,
   },
   errorText: {
-    color: AppColors.danger,
+    color: colors.danger,
     fontSize: 15,
   },
   emptyText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 15,
     marginTop: 8,
   },
   primaryButtonText: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
     fontFamily: Fonts.serif,
     fontWeight: '700',
     fontSize: 16,
