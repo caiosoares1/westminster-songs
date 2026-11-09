@@ -6,7 +6,7 @@ import { chordsAboveLyricsToBracket, transposeEditorContent } from '@/music/edit
 describe('editor tools', () => {
   it('converts a chord sheet pasted from a chord site', () => {
     const pasted = ['Refrão', 'F        C        Dm7  G', 'Nos guarda o Senhor Jesus'].join('\n');
-    assert.equal(chordsAboveLyricsToBracket(pasted), '[Refrão]\n[F]Nos guard[C]a o Senho[Dm7]r Jes[G]us');
+    assert.equal(chordsAboveLyricsToBracket(pasted), '[Refrão]\n[F]Nos guar[C]da o Se[Dm7]nhor Je[G]sus');
   });
 
   it('keeps lines that are already in bracket format', () => {

@@ -1,8 +1,9 @@
 // Root, suffix and optional bass. The suffix may contain "/<digits>" so that
 // Brazilian notation such as E7/9 or C6/9 is a suffix, not a bass note.
+// Hymnals write minor chords with a dash (A- = Am).
 const CHORD_HEAD_REGEX = /^([A-G](?:#|b)?)((?:[^/\s]|\/(?=\d))*)(?:\/([A-G](?:#|b)?))?$/;
 const CHORD_SUFFIX_REGEX =
-  /^(?:(?:maj|min|dim|aug|sus|add|m|M)|(?:\d{1,2})|(?:[#b+-]\d{1,2})|(?:\((?:add|sus|maj|M|[#b0-9,+\-/])+\))|(?:\/\d{1,2})|(?:[+°ºø]))*$/;
+  /^(?:(?:maj|min|dim|aug|sus|add|m|M)|(?:\d{1,2})|(?:[#b+-]\d{1,2})|(?:\((?:add|sus|maj|M|[#b0-9,+\-/])+\))|(?:\/\d{1,2})|(?:[+°ºø])|(?:-(?!\d)))*$/;
 const TOKEN_EDGE_PUNCTUATION = /^[\[\](){}"'.,;:!?|]+|[\[\](){}"'.,;:!?|]+$/g;
 const NEUTRAL_LINE_TOKENS = new Set(['|', '||', '/', '-', '--', '---']);
 
