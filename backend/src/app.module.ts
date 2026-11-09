@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ClientIpThrottlerGuard } from './client-ip.throttler.guard';
+import { KeepAliveService } from './keep-alive.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { SetlistsModule } from './setlists/setlists.module';
 import { SongsModule } from './songs/songs.module';
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
   controllers: [AppController],
   providers: [
     AppService,
+    KeepAliveService,
     { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
   ],
 })
