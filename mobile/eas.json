@@ -10,7 +10,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://COLE-AQUI-A-URL-DO-CLOUD-RUN.run.app"
+        "EXPO_PUBLIC_API_URL": "https://COLE-AQUI-A-URL-DA-API"
       }
     }
   }

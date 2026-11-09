@@ -1,0 +1,39 @@
+# API + HTTPS on a single machine (Oracle Cloud Always Free).
+# Managed by install.sh / update.sh; settings come from .env.
+name: westminster
+
+services:
+  api:
+    build: ../../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8080"
+      TRUST_PROXY: "1"
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy_data:
+  caddy_config:

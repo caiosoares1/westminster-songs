@@ -1,0 +1,5 @@
+# HTTPS certificate is issued and renewed automatically (Let's Encrypt).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:8080
+}

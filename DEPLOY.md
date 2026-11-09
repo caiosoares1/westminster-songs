@@ -1,109 +1,136 @@
 # Publicar o Westminster Songs
 
-Arquitetura (tudo no plano gratuito):
+Arquitetura (tudo grátis):
 
 | Parte | Onde | Observação |
 |---|---|---|
-| API (NestJS + Tesseract) | **Google Cloud Run** | Desliga quando ninguém usa; o primeiro acesso depois disso leva alguns segundos |
-| Banco (Postgres) | **Neon** | 1 GB grátis, sobra para milhares de cifras |
+| API (NestJS + Tesseract) + HTTPS | **Oracle Cloud Always Free** (máquina Ampere A1) | Sempre ligada; HTTPS automático com Caddy |
+| Banco (Postgres) | **Neon** | 1 GB grátis, com backup gerenciado |
 | App Android | **APK pelo EAS Build (Expo)** | Você manda o link, o grupo instala |
 
-Não precisa de domínio: o Cloud Run dá um endereço `https://...run.app`.
+Não precisa de domínio: o endereço da API fica `https://<ip-da-maquina>.sslip.io`.
 
 ---
 
 ## 1. Banco no Neon
 
-1. Crie uma conta em <https://neon.com> e um projeto chamado `westminster`.
-2. Região: **AWS US East (Ohio)**, perto do servidor da API (passo 3).
-3. Em **Connect**, desligue **Connection pooling** e copie a connection string.
-   Ela tem esta cara:
-   `postgresql://usuario:senha@ep-xxxx.us-east-2.aws.neon.tech/neondb?sslmode=require`
+1. Crie um projeto em <https://neon.com>, na região **AWS South America (São Paulo)** se estiver disponível (perto da máquina da Oracle).
+2. Em **Connect**, desligue **Connection pooling** e copie a connection string (`postgresql://...neon.tech/neondb?sslmode=require...`).
+   Não cole essa string em chats nem no GitHub: ela contém a senha.
 
-## 2. Segredos
+## 2. Conta na Oracle Cloud
 
-Você vai precisar de dois valores:
+1. Cadastre-se em <https://signup.cloud.oracle.com>. O cartão é só para verificação.
+2. **Home Region: Brazil East (Sao Paulo).** Não dá para mudar depois, e as máquinas grátis só existem na região principal.
+3. **Não faça upgrade** para "Pay As You Go": no plano grátis a conta não tem como ser cobrada.
+4. **Alerta de orçamento** (☰ → *Billing & Cost Management → Budgets → Create Budget*):
+   - Target: Compartment (o principal), valor mensal **5**
+   - Alert rule: *Actual Spend*, *Percentage of Budget* = **1**, com o seu email
+   - O orçamento avisa, não bloqueia. A proteção de verdade é o item 3.
 
-- **Código do grupo** (`GROUP_INVITE_CODE`): o que o pessoal digita para criar conta. Ex.: `coral-westminster-2026`. Passe só para o grupo.
-- **Segredo dos logins** (`JWT_SECRET`): 64 caracteres aleatórios. Gere com:
-  ```
-  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-  ```
-  Guarde. Se mudar, todo mundo precisa entrar de novo.
+## 3. Criar a máquina
 
-## 3. API no Google Cloud Run
+☰ → *Compute → Instances → Create instance*:
 
-1. Entre em <https://console.cloud.google.com>, crie um projeto (ex.: `westminster-songs`) e ative o faturamento (pede cartão, mas o uso do grupo fica dentro da cota grátis).
-2. **Crie um alerta de orçamento** em *Faturamento → Orçamentos e alertas*: R$ 5, com aviso por email. Assim, se algo sair do esperado, você fica sabendo antes de virar custo.
-3. Abra o **Cloud Shell** (ícone `>_` no topo do console). Ele já tem `gcloud` e `git`, nada para instalar.
-4. No Cloud Shell:
-   ```
-   git clone https://github.com/caiosoares1/westminster-songs.git
-   cd westminster-songs/backend
-   ```
-5. Crie o arquivo `env.yaml` com os segredos (ele está no `.gitignore` e não vai para o GitHub):
-   ```
-   cat > env.yaml <<'EOF'
-   DATABASE_URL: "COLE-A-CONNECTION-STRING-DO-NEON"
-   GROUP_INVITE_CODE: "SEU-CODIGO-DO-GRUPO"
-   JWT_SECRET: "SEU-SEGREDO-DE-64-CARACTERES"
-   EOF
-   ```
-6. Publique (na primeira vez ele pergunta se pode ativar algumas APIs: responda `Y`):
-   ```
-   gcloud run deploy westminster-api \
-     --source . \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --memory 1Gi \
-     --max-instances 2 \
-     --env-vars-file env.yaml
-   ```
-   - `us-central1`: a cota grátis do Cloud Run é calculada com os preços dessa região.
-   - `--max-instances 2`: limita quantas cópias da API podem rodar ao mesmo tempo (segurança contra custo).
-   - As tabelas do banco são criadas sozinhas quando a API sobe.
-7. No final ele mostra a **Service URL** (`https://westminster-api-xxxxx-uc.a.run.app`). Abra no navegador: deve aparecer `Hello World!`.
+| Campo | Valor |
+|---|---|
+| Name | `westminster` |
+| Image | **Canonical Ubuntu 24.04** |
+| Shape | **Ampere → VM.Standard.A1.Flex**, **1 OCPU e 2 GB** (selo "Always Free-eligible") |
+| Networking | rede nova, com **Assign a public IPv4 address** |
+| SSH keys | **Generate a key pair for me** → **Save private key** (guarde o arquivo `.key`) |
 
-**Atualizar a API depois:** no Cloud Shell, `cd westminster-songs && git pull && cd backend` e rode o mesmo `gcloud run deploy` do passo 6.
+**Por que 2 GB e não mais:** a Oracle pode recuperar máquinas grátis consideradas ociosas (CPU, rede **e** memória abaixo de 20% por 7 dias). Com 2 GB, sistema + API devem ocupar uns 25% da memória (estimativa), acima do limite, então a máquina não conta como parada. Se você criou com mais memória, reduza em *Edit → Edit shape* (a máquina reinicia, nada se perde).
 
-**Ver erros:** `gcloud run services logs read westminster-api --region us-central1`
+Se aparecer **"Out of capacity"**, tente mais tarde; de madrugada costuma ter vaga.
 
-## 4. APK para Android
+## 4. Liberar as portas 80 e 443
+
+Na página da máquina: *Primary VNIC → Subnet* (clique no nome) → *Security* → *Default Security List* → **Add Ingress Rules**:
+
+| Campo | Valor |
+|---|---|
+| Source CIDR | `0.0.0.0/0` |
+| IP Protocol | TCP |
+| Destination Port Range | `80,443` |
+
+A porta 80 é necessária para o certificado HTTPS (Let's Encrypt) ser emitido.
+
+## 5. Instalar
+
+No seu computador (Windows, PowerShell), na pasta onde salvou a chave:
+
+```powershell
+icacls .\ssh-key-*.key /inheritance:r /grant:r "$($env:USERNAME):(R)"
+ssh -i .\ssh-key-*.key ubuntu@IP_DA_MAQUINA
+```
+
+(O `icacls` só precisa ser rodado uma vez: o SSH recusa chaves que outros usuários do Windows podem ler.)
+
+Já dentro da máquina:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/caiosoares1/westminster-songs/main/deploy/oracle/install.sh | sudo bash
+```
+
+O script pede a connection string do Neon (não aparece na tela) e o **código do grupo**, e faz o resto:
+Docker, firewall, swap, atualizações automáticas de segurança, API e HTTPS. Leva uns 10 minutos.
+No final ele mostra o endereço, ex.: `https://129-146-12-34.sslip.io`. Abra no navegador: deve aparecer `Hello World!`.
+
+As configurações ficam em `/opt/westminster-songs/deploy/oracle/.env` (só o administrador da máquina lê).
+
+## 6. APK para Android
 
 No seu computador, na pasta do projeto:
 
-1. Crie uma conta em <https://expo.dev>.
-2. Instale e entre:
-   ```
-   npm install -g eas-cli
-   cd mobile
-   eas login
-   eas init
-   ```
-   (`eas init` liga o app à sua conta e grava um `projectId` no `app.json`; faça commit dessa mudança.)
-3. Em `mobile/eas.json`, troque `https://COLE-AQUI-A-URL-DO-CLOUD-RUN.run.app` pela Service URL do passo 3.7.
-4. Gere o APK:
-   ```
-   eas build --platform android --profile apk
-   ```
-   O build roda nos servidores da Expo. No plano grátis pode ficar na fila (em horário de pico, mais de uma hora). No fim aparece um link e um QR code.
-5. Mande o link no grupo. No Android, a pessoa abre, baixa e permite "instalar apps desta fonte" quando o celular pedir.
+```
+npm install -g eas-cli
+cd mobile
+eas login
+eas init
+```
 
-**Primeiro acesso:** crie a sua conta **antes** de mandar para o grupo. A primeira conta criada vira **administrador** (pode excluir músicas e gerenciar membros na aba Conta).
+(`eas init` grava um `projectId` no `app.json`; faça commit dessa mudança.)
 
-**Atualizar o app:** aumente `versionCode` em `mobile/app.json` (1 → 2…), rode o `eas build` de novo e mande o novo link. Quem instalar por cima mantém o login.
+Em `mobile/eas.json`, troque `https://COLE-AQUI-A-URL-DA-API` pelo endereço do passo 5 e gere o APK:
 
-## Limites do plano grátis (o que esperar)
+```
+eas build --platform android --profile apk
+```
 
-- **Primeiro acesso do dia mais lento**: a API desliga quando ninguém usa e leva alguns segundos para acordar. Depois fica rápida.
-- **Cloud Run**: 2 milhões de requisições por mês grátis. Um grupo usa uma fração disso.
-- **Imagens da API** (Artifact Registry): 0,5 GB grátis. Cada `gcloud run deploy` guarda uma imagem nova; se passar do limite, o custo é de centavos. Dá para apagar as antigas em *Artifact Registry → cloud-run-source-deploy*.
-- **Neon**: 1 GB de dados e 100 horas de processamento por mês; o banco também dorme e acorda em fração de segundo.
-- **EAS Build**: até 15 builds Android grátis.
+O build roda nos servidores da Expo (no plano grátis pode ficar na fila). No fim aparece um link: mande no grupo. No Android, a pessoa permite "instalar apps desta fonte" quando o celular pedir.
+
+**Crie a sua conta antes de mandar para o grupo:** a primeira conta vira **administrador**.
+
+**Atualizar o app:** aumente `versionCode` em `mobile/app.json` (1 → 2…), rode o `eas build` de novo e mande o novo link.
+
+## Manutenção
+
+| O que | Como (dentro da máquina, via SSH) |
+|---|---|
+| Atualizar a API com o código novo do GitHub | `sudo /opt/westminster-songs/deploy/oracle/update.sh` |
+| Ver erros | `cd /opt/westminster-songs/deploy/oracle && sudo docker compose logs --tail 100 api` |
+| Trocar o código do grupo | `sudo nano /opt/westminster-songs/deploy/oracle/.env` e depois o `update.sh` |
+| Reiniciar tudo | `sudo reboot` (a API volta sozinha) |
+
+- Atualizações de segurança do Ubuntu são instaladas sozinhas; se precisar reiniciar, a máquina reinicia às 4h e a API volta sozinha.
+- Os dados ficam no Neon. Se a máquina for perdida, crie outra (passos 3 a 5) com a mesma connection string e o mesmo código: as músicas continuam lá. Só o IP muda, e aí é preciso gerar um APK novo com o endereço novo.
 
 ## Segurança
 
 - Ninguém usa o app sem conta, e só cria conta quem tem o código do grupo.
-- Para impedir novos cadastros (ex.: o código vazou), troque `GROUP_INVITE_CODE` no `env.yaml` e publique de novo. Quem já tem conta continua entrando.
+- Para impedir novos cadastros (ex.: o código vazou), troque `GROUP_INVITE_CODE` no `.env` e rode o `update.sh`. Quem já tem conta continua entrando.
 - Para tirar alguém do grupo: aba **Conta** → ícone de remover ao lado do nome. O acesso é cortado na hora.
 - Tentativas de login são limitadas a 10 por minuto por IP.
+
+---
+
+## Alternativa: Google Cloud Run
+
+Se preferir não manter uma máquina: o `backend/Dockerfile` também roda no Cloud Run (exige ativar o faturamento do Google Cloud; em alguns casos o Google pede um pré-pagamento reembolsável). No Cloud Shell, dentro de `backend/`, crie um `env.yaml` com `DATABASE_URL`, `GROUP_INVITE_CODE` e `JWT_SECRET` e rode:
+
+```
+gcloud run deploy westminster-api --source . --region us-central1 \
+  --allow-unauthenticated --memory 1Gi --max-instances 2 \
+  --env-vars-file env.yaml
+```
