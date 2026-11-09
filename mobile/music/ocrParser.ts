@@ -44,11 +44,61 @@ export function repairOcrChordLine(line: string): string {
 }
 
 function linesFromRawText(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => repairOcrChordLine(line.trimEnd()))
-    .filter((line) => line.trim().length > 0);
+  return text.split(/\r?\n/).map((line) => repairOcrChordLine(line.trimEnd()));
 }
+
+// "2. Texto", "3) Texto", "4 - Texto": numbered stanza.
+const STANZA_NUMBER_REGEX = /^(\s*)(\d{1,2})\s*[.)\-–:]\s*(?=\p{L})/u;
+
+/**
+ * Blank lines separate stanzas, unless they are OCR noise: some engines put
+ * a blank line after almost every line, and then they mean nothing.
+ * Returns the lines with meaningful breaks as a single '' each.
+ */
+function normalizeBlankLines(lines: string[]): string[] {
+  const content = lines.filter((line) => line.trim());
+  let followedByBlank = 0;
+  lines.forEach((line, index) => {
+    if (line.trim() && index + 1 < lines.length && !lines[index + 1].trim()) followedByBlank += 1;
+  });
+  const blanksAreNoise = content.length > 2 && followedByBlank / content.length > 0.4;
+  if (blanksAreNoise) {
+    return content;
+  }
+
+  const result: string[] = [];
+  for (const line of lines) {
+    if (line.trim()) result.push(line);
+    else if (result.length > 0 && result[result.length - 1] !== '') result.push('');
+  }
+  return result;
+}
+
+/** Removes the spaces left at the start of a line (stanza numbers, indentation). */
+function trimLineStart(line: SongLine): SongLine {
+  const items: SongItem[] = [];
+  let started = false;
+  for (const item of line.items) {
+    if (!started && item.type === 'lyric') {
+      const value = item.value.trimStart();
+      if (!value) continue;
+      started = true;
+      items.push({ ...item, value });
+      continue;
+    }
+    if (item.type === 'lyric') started = true;
+    items.push(item);
+  }
+  return { items };
+}
+
+const lyricKey = (section: SongSection) =>
+  section.lines
+    .map((line) => line.items.filter((item) => item.type === 'lyric').map((item) => item.value).join(''))
+    .join(' ')
+    .toLowerCase()
+    .replace(/[^\p{L}]+/gu, ' ')
+    .trim();
 
 function isSectionHeaderLine(line: string): boolean {
   return isKnownSectionHeading(line);
@@ -125,17 +175,25 @@ function buildLineFromChordAndLyric(chordLine: string, lyricLine: string): SongL
   return items.length > 0 ? { items } : { items: [{ type: 'lyric', value: lyricLine }] };
 }
 
-function parseLinesToStructure(lines: string[]): SongStructure {
+function parseLinesToStructure(rawLines: string[]): SongStructure {
+  const lines = normalizeBlankLines(rawLines);
   const sections: SongSection[] = [];
   let currentSection: SongSection | null = null;
+  let pendingBreak = false;
 
-  const ensureSection = () => {
-    if (!currentSection) {
-      currentSection = { type: 'verse', lines: [] };
-      sections.push(currentSection);
-    }
-
+  const startStanza = (number: string | null) => {
+    const verses = sections.filter((section) => section.type.startsWith('verse')).length;
+    const type = number ? `verse ${number}` : verses === 0 ? 'verse' : `verse ${verses + 1}`;
+    currentSection = { type, lines: [] };
+    sections.push(currentSection);
     return currentSection;
+  };
+
+  // Takes "2." off a lyric line, keeping the columns (chords above stay aligned).
+  const takeStanzaNumber = (line: string | undefined): { line: string | undefined; number: string | null } => {
+    const match = line?.match(STANZA_NUMBER_REGEX);
+    if (!line || !match || isChordLine(line.trim())) return { line, number: null };
+    return { line: match[1] + ' '.repeat(match[0].length - match[1].length) + line.slice(match[0].length), number: match[2] };
   };
 
   let index = 0;
@@ -145,6 +203,7 @@ function parseLinesToStructure(lines: string[]): SongStructure {
     const trimmed = line.trim();
 
     if (!trimmed) {
+      pendingBreak = true;
       index += 1;
       continue;
     }
@@ -152,20 +211,37 @@ function parseLinesToStructure(lines: string[]): SongStructure {
     if (isSectionHeaderLine(trimmed)) {
       currentSection = { type: normalizeSectionType(trimmed), lines: [] };
       sections.push(currentSection);
+      pendingBreak = false;
       index += 1;
       continue;
     }
 
-    const section = ensureSection();
+    const chordLine = isChordLine(trimmed);
+    const own = takeStanzaNumber(line);
+    const next = chordLine ? takeStanzaNumber(lines[index + 1]) : { line: lines[index + 1], number: null };
+    const number = own.number ?? next.number;
+
+    // New stanza: after a blank line or at a "2." marker, once the current
+    // section already has content.
+    const current = currentSection as SongSection | null;
+    let section: SongSection;
+    if (!current || ((pendingBreak || number) && current.lines.length > 0)) {
+      section = startStanza(number);
+    } else {
+      section = current;
+    }
+    pendingBreak = false;
+
+    const lineText = own.line ?? line;
 
     if (trimmed.includes('[') && trimmed.includes(']')) {
-      section.lines.push({ items: parseLineToItems(line) });
+      section.lines.push({ items: parseLineToItems(lineText) });
       index += 1;
       continue;
     }
 
-    if (isChordLine(trimmed)) {
-      const nextLine = lines[index + 1];
+    if (chordLine) {
+      const nextLine = next.line;
       const hasLyricPair =
         typeof nextLine === 'string' &&
         nextLine.trim().length > 0 &&
@@ -173,7 +249,7 @@ function parseLinesToStructure(lines: string[]): SongStructure {
         !isChordLine(nextLine);
 
       if (hasLyricPair) {
-        section.lines.push(buildLineFromChordAndLyric(line, nextLine));
+        section.lines.push(trimLineStart(buildLineFromChordAndLyric(line, nextLine)));
         index += 2;
         continue;
       }
@@ -183,16 +259,24 @@ function parseLinesToStructure(lines: string[]): SongStructure {
       continue;
     }
 
-    section.lines.push({ items: [{ type: 'lyric', value: line }] });
+    section.lines.push(trimLineStart({ items: [{ type: 'lyric', value: lineText }] }));
     index += 1;
   }
 
-  const hasAnyLine = sections.some((section) => section.lines.length > 0);
-  if (!hasAnyLine) {
+  const filled = sections.filter((section) => section.lines.length > 0);
+  if (filled.length === 0) {
     throw new Error('Nenhuma linha reconhecida no OCR.');
   }
 
-  return { sections };
+  // A stanza with the same words as the chorus is the chorus repeated.
+  const choruses = filled.filter((section) => section.type.startsWith('chorus')).map(lyricKey);
+  return {
+    sections: filled.map((section) =>
+      section.type.startsWith('verse') && choruses.includes(lyricKey(section))
+        ? { ...section, type: 'chorus' }
+        : section,
+    ),
+  };
 }
 
 function median(values: number[]): number {
@@ -279,9 +363,22 @@ export function tokensToTextLines(tokens: OcrToken[]): string[] {
   }
 
   const grid = buildColumnGrid(usable);
-  return groupTokensByLine(usable)
-    .map((group) => repairOcrChordLine(tokensToLine(group, grid)))
-    .filter((line) => line.trim().length > 0);
+  const groups = groupTokensByLine(usable);
+  const tops = groups.map((group) => Math.min(...group.map((token) => token.y)));
+  const bottoms = groups.map((group) => Math.max(...group.map((token) => token.y + token.height)));
+  const gaps = groups.slice(1).map((_, index) => tops[index + 1] - bottoms[index]);
+  const lineHeight = median(usable.map((token) => token.height));
+  // A blank line between stanzas leaves a gap of about one line height;
+  // lines inside a stanza are much closer.
+  const breakGap = Math.max(lineHeight * 0.9, median(gaps) * 2);
+
+  const lines: string[] = [];
+  groups.forEach((group, index) => {
+    if (index > 0 && gaps[index - 1] > breakGap) lines.push('');
+    const line = repairOcrChordLine(tokensToLine(group, grid));
+    if (line.trim()) lines.push(line);
+  });
+  return lines;
 }
 
 export function parseOcrTextToStructure(text: string): SongStructure {

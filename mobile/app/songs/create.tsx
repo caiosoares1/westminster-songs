@@ -45,7 +45,9 @@ const INITIAL_CONTENT = `[Verso]
 const FORMAT_HELP =
   'Coloque cada acorde entre colchetes, antes da sílaba: [C]Castelo [G]forte.\n\n' +
   'Títulos de seção ficam sozinhos na linha: [Verso], [Refrão], [Ponte].\n\n' +
-  'Colou uma cifra de site, com os acordes na linha de cima? Toque em "Acordes automáticos" para converter.';
+  'Estrofes sem título: separe com uma linha em branco (viram Verso 2, Verso 3...).\n\n' +
+  'Toque em "Acordes automáticos" para converter uma cifra colada de site (acordes na linha de cima) ' +
+  'e para completar as estrofes sem acordes com o padrão da estrofe cifrada.';
 
 function formatVersionDate(iso: string): string {
   const date = new Date(iso);

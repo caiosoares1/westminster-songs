@@ -1,4 +1,5 @@
 import { parseOcrTextToStructure } from '@/music/ocrParser';
+import { fillChordsFromPattern } from '@/music/pattern';
 import { getTransposedKey, transposeStructure } from '@/music/transpose';
 import {
   parseBracketContentToStructure,
@@ -7,7 +8,8 @@ import {
 
 /**
  * Converts a chord sheet pasted in the "chords above the lyrics" layout used
- * by chord sites into the editor's bracket format:
+ * by chord sites into the editor's bracket format, and fills stanzas that
+ * have only lyrics with the chords of the chorded stanza (same melody):
  *
  *   C          G              [C]Castelo forte é [G]nosso Deus
  *   Castelo forte é nosso Deus   ->
@@ -15,7 +17,7 @@ import {
  * Lines already in bracket format and section headings are kept.
  */
 export function chordsAboveLyricsToBracket(text: string): string {
-  return structureToBracketContent(parseOcrTextToStructure(text));
+  return structureToBracketContent(fillChordsFromPattern(parseOcrTextToStructure(text)));
 }
 
 /** Transposes the editor content and its key by `steps` semitones. */

@@ -14,6 +14,14 @@ describe('editor tools', () => {
     assert.equal(chordsAboveLyricsToBracket(content), content);
   });
 
+  it('fills a stanza typed without chords, after a blank line', () => {
+    const content = '[Verso]\n[C]Louvai ao Se[G]nhor nosso [Am]Deus\n\nCantai ao Rei que nos salvou';
+    assert.equal(
+      chordsAboveLyricsToBracket(content),
+      '[Verso]\n[C]Louvai ao Se[G]nhor nosso [Am]Deus\n\n[Verso 2]\n[C]Cantai ao Rei [G]que nos sal[Am]vou',
+    );
+  });
+
   it('transposes the content and the key together', () => {
     const result = transposeEditorContent('[Verso]\n[C]Castelo [G/B]forte [Am7]é', 'C', -2);
     assert.equal(result.key, 'Bb');
