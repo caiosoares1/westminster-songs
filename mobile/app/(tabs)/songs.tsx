@@ -14,7 +14,8 @@ import { Link, useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { getSetlists, type SetlistListItem } from '@/services/setlists';
 import { getSongs, type Song } from '@/services/songs';
 
@@ -45,6 +46,8 @@ function filterByCategory(song: Song, category: Category): boolean {
 }
 
 export default function SongsScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,29 +111,29 @@ export default function SongsScreen() {
           data={filteredSongs}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={AppColors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
           ListHeaderComponent={(
             <View style={styles.topSection}>
               <View style={styles.topBar}>
                 <Pressable style={styles.circleButton}>
-                  <MaterialIcons name="menu" size={26} color={AppColors.primary} />
+                  <MaterialIcons name="menu" size={26} color={colors.primary} />
                 </Pressable>
 
                 <Text style={styles.brandTitle}>Cifras Presbiterianas</Text>
 
                 <Pressable style={styles.circleButton}>
-                  <MaterialIcons name="person" size={24} color={AppColors.primary} />
+                  <MaterialIcons name="person" size={24} color={colors.primary} />
                 </Pressable>
               </View>
 
               <View style={styles.searchContainer}>
-                <MaterialIcons name="search" size={24} color={AppColors.textMuted} />
+                <MaterialIcons name="search" size={24} color={colors.textMuted} />
                 <TextInput
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="Buscar musicas, artistas ou letras"
-                  placeholderTextColor={AppColors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   style={styles.searchInput}
                 />
               </View>
@@ -166,7 +169,7 @@ export default function SongsScreen() {
             <Link href={{ pathname: '/songs/[id]', params: { id: item.id } }} asChild>
               <Pressable style={styles.card}>
                 <View style={styles.cardIconBox}>
-                  <MaterialIcons name="music-note" size={36} color={AppColors.primary} />
+                  <MaterialIcons name="music-note" size={36} color={colors.primary} />
                 </View>
 
                 <View style={styles.cardTextContainer}>
@@ -178,7 +181,7 @@ export default function SongsScreen() {
                   </Text>
                 </View>
 
-                <MaterialIcons name="chevron-right" size={30} color={AppColors.border} />
+                <MaterialIcons name="chevron-right" size={30} color={colors.border} />
               </Pressable>
             </Link>
           )}
@@ -209,13 +212,13 @@ export default function SongsScreen() {
 
         <Link href="/songs/create" asChild>
           <Pressable style={styles.fab}>
-            <MaterialIcons name="add" size={34} color={AppColors.surface} />
+            <MaterialIcons name="add" size={34} color={colors.onPrimary} />
           </Pressable>
         </Link>
 
         <Link href="/songs/import" asChild>
           <Pressable style={styles.ocrFab}>
-            <MaterialIcons name="photo-camera" size={25} color={AppColors.primaryStrong} />
+            <MaterialIcons name="photo-camera" size={25} color={colors.primaryStrong} />
           </Pressable>
         </Link>
       </View>
@@ -224,14 +227,15 @@ export default function SongsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -255,20 +259,20 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.primarySoft,
+    backgroundColor: colors.primarySoft,
   },
   brandTitle: {
     flex: 1,
     textAlign: 'center',
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 20,
     fontWeight: '700',
   },
   searchContainer: {
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surfaceMuted,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 20,
     paddingHorizontal: 18,
     height: 64,
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
   },
@@ -289,25 +293,25 @@ const styles = StyleSheet.create({
   chip: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     paddingHorizontal: 24,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   chipSelected: {
-    backgroundColor: AppColors.primary,
-    borderColor: AppColors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
     fontFamily: Fonts.serif,
     fontSize: 16,
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
   },
   sectionHeader: {
     marginTop: 4,
@@ -319,13 +323,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: Fonts.serif,
     fontSize: 20,
-    color: AppColors.text,
+    color: colors.text,
     fontWeight: '700',
   },
   sectionAction: {
     fontFamily: Fonts.serif,
     fontSize: 17,
-    color: AppColors.primary,
+    color: colors.primary,
     fontWeight: '700',
   },
   errorText: {
@@ -339,22 +343,22 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     borderRadius: 22,
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     padding: 18,
     marginHorizontal: 20,
     alignItems: 'center',
     gap: 8,
   },
   emptyTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
   },
   emptySubtitle: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 14,
   },
@@ -364,12 +368,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     borderRadius: 22,
     padding: 16,
     gap: 14,
-    backgroundColor: AppColors.surface,
-    shadowColor: AppColors.shadow,
+    backgroundColor: colors.surface,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.45,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -381,7 +385,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   cardTextContainer: {
     flex: 1,
@@ -390,11 +394,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
   },
   subtitle: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontSize: 16,
     fontFamily: Fonts.serif,
   },
@@ -416,7 +420,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: '#8CB5B6',
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   playlistOverlay: {
     ...StyleSheet.absoluteFill,
@@ -424,14 +428,14 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   playlistTitle: {
-    color: AppColors.surface,
+    color: '#FFFFFF',
     fontFamily: Fonts.serif,
     fontSize: 20,
     fontWeight: '700',
     zIndex: 1,
   },
   playlistCount: {
-    color: AppColors.surface,
+    color: '#FFFFFF',
     opacity: 0.85,
     fontFamily: Fonts.serif,
     fontSize: 16,
@@ -444,10 +448,10 @@ const styles = StyleSheet.create({
     width: 78,
     height: 78,
     borderRadius: 39,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: AppColors.shadow,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.55,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
@@ -461,11 +465,11 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 31,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: AppColors.shadow,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },

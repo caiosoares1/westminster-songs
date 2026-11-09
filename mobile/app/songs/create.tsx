@@ -12,7 +12,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { normalizeKey } from '@/music/chordParser';
 import { chordsAboveLyricsToBracket, transposeEditorContent } from '@/music/editor';
 import { useAuth } from '@/providers/auth';
@@ -58,6 +59,8 @@ function formatVersionDate(iso: string): string {
 }
 
 export default function SongFormScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const songId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -243,7 +246,7 @@ export default function SongFormScreen() {
           {loadError ? (
             <Text style={styles.errorText}>{loadError}</Text>
           ) : (
-            <ActivityIndicator size="large" color={AppColors.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           )}
         </View>
       </SafeAreaView>
@@ -256,7 +259,7 @@ export default function SongFormScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerIconButton}>
-          <MaterialIcons name="close" size={34} color={AppColors.text} />
+          <MaterialIcons name="close" size={34} color={colors.text} />
         </Pressable>
 
         <Text style={styles.headerTitle}>{isEditing ? 'Editar Musica' : 'Nova Musica'}</Text>
@@ -271,14 +274,14 @@ export default function SongFormScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {!isEditing ? (
           <Pressable style={styles.importShortcut} onPress={() => router.push('/songs/import')}>
-            <MaterialIcons name="photo-camera" size={24} color={AppColors.primary} />
+            <MaterialIcons name="photo-camera" size={24} color={colors.primary} />
             <View style={styles.importShortcutTextBlock}>
               <Text style={styles.importShortcutTitle}>Importar por OCR</Text>
               <Text style={styles.importShortcutSubtitle}>
                 Escaneie uma folha e revise antes de salvar.
               </Text>
             </View>
-            <MaterialIcons name="chevron-right" size={24} color={AppColors.primary} />
+            <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
           </Pressable>
         ) : null}
 
@@ -288,7 +291,7 @@ export default function SongFormScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder="ex. Castelo Forte"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <Text style={styles.label}>ARTISTA / COMPOSITOR</Text>
@@ -297,7 +300,7 @@ export default function SongFormScreen() {
           value={author}
           onChangeText={setAuthor}
           placeholder="ex. Martinho Lutero"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <Text style={styles.label}>TONALIDADE ORIGINAL</Text>
@@ -306,7 +309,7 @@ export default function SongFormScreen() {
           value={originalKey}
           onChangeText={setOriginalKey}
           placeholder="ex. C, Dm, F# ou Dó, Ré menor"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <View style={styles.contentHeader}>
@@ -314,7 +317,7 @@ export default function SongFormScreen() {
           <Pressable
             onPress={() => showMessage('Como formatar', FORMAT_HELP)}
             style={styles.helpButton}>
-            <MaterialIcons name="help-outline" size={16} color={AppColors.primary} />
+            <MaterialIcons name="help-outline" size={16} color={colors.primary} />
             <Text style={styles.helpButtonText}>Como formatar</Text>
           </Pressable>
         </View>
@@ -343,13 +346,13 @@ export default function SongFormScreen() {
               setContentBeforeAuto(null);
             }}
             placeholder="[C]Castelo forte é [G]nosso Deus"
-            placeholderTextColor={AppColors.textMuted}
+            placeholderTextColor={colors.textMuted}
           />
         </View>
 
         {isEditing && isAdmin ? (
           <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={busy}>
-            <MaterialIcons name="delete-outline" size={22} color={AppColors.danger} />
+            <MaterialIcons name="delete-outline" size={22} color={colors.danger} />
             <Text style={styles.deleteButtonText}>
               {deleting ? 'Excluindo...' : 'Excluir musica'}
             </Text>
@@ -383,7 +386,7 @@ export default function SongFormScreen() {
                   key={version.id}
                   style={styles.historyItem}
                   onPress={() => void handleRestoreVersion(version)}>
-                  <MaterialIcons name="history" size={18} color={AppColors.primary} />
+                  <MaterialIcons name="history" size={18} color={colors.primary} />
                   <Text style={styles.historyText}>
                     {formatVersionDate(version.createdAt)}
                     {index === 0 ? ' (atual)' : ''}
@@ -411,7 +414,7 @@ export default function SongFormScreen() {
 
       <View style={styles.bottomTools}>
         <Pressable style={styles.toolPill} onPress={handleAutoChords}>
-          <MaterialIcons name="auto-fix-high" size={20} color={AppColors.primary} />
+          <MaterialIcons name="auto-fix-high" size={20} color={colors.primary} />
           <Text style={styles.toolText} numberOfLines={1}>
             Acordes
           </Text>
@@ -419,7 +422,7 @@ export default function SongFormScreen() {
         <Pressable
           style={[styles.toolPill, panel === 'transpose' && styles.toolPillActive]}
           onPress={() => setPanel(panel === 'transpose' ? 'none' : 'transpose')}>
-          <MaterialIcons name="swap-vert" size={21} color={AppColors.primary} />
+          <MaterialIcons name="swap-vert" size={21} color={colors.primary} />
           <Text style={styles.toolText} numberOfLines={1}>
             Transpor
           </Text>
@@ -428,7 +431,7 @@ export default function SongFormScreen() {
           <Pressable
             style={[styles.toolPill, panel === 'history' && styles.toolPillActive]}
             onPress={() => setPanel(panel === 'history' ? 'none' : 'history')}>
-            <MaterialIcons name="history" size={21} color={AppColors.primary} />
+            <MaterialIcons name="history" size={21} color={colors.primary} />
             <Text style={styles.toolText} numberOfLines={1}>
               Histórico
             </Text>
@@ -439,10 +442,11 @@ export default function SongFormScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -451,7 +455,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errorText: {
-    color: AppColors.danger,
+    color: colors.danger,
     fontSize: 16,
     textAlign: 'center',
   },
@@ -464,24 +468,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.danger,
+    borderColor: colors.danger,
   },
   deleteButtonText: {
-    color: AppColors.danger,
+    color: colors.danger,
     fontFamily: Fonts.serif,
     fontSize: 16,
     fontWeight: '700',
   },
   panel: {
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 10,
   },
   panelTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 15,
     fontWeight: '700',
@@ -496,15 +500,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
   },
   panelButtonText: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
     fontSize: 17,
     fontWeight: '700',
   },
   panelEmpty: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
   },
   historyList: {
@@ -517,21 +521,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   historyText: {
-    color: AppColors.text,
+    color: colors.text,
     fontSize: 15,
   },
   toolPillActive: {
-    backgroundColor: AppColors.primarySoft,
+    backgroundColor: colors.primarySoft,
   },
   header: {
     height: 82,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: colors.border,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
   },
   headerIconButton: {
     width: 44,
@@ -542,13 +546,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 19,
     fontWeight: '700',
   },
   saveText: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 17,
     fontWeight: '700',
@@ -565,8 +569,8 @@ const styles = StyleSheet.create({
   importShortcut: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -578,18 +582,18 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   importShortcutTitle: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
   },
   importShortcutSubtitle: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 13,
   },
   label: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 17,
     letterSpacing: 0.8,
@@ -599,10 +603,10 @@ const styles = StyleSheet.create({
     height: 66,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 18,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
   },
@@ -618,24 +622,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   helpButtonText: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
   },
   contentBox: {
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
   },
   quickChordsRow: {
     gap: 10,
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    backgroundColor: AppColors.surfaceMuted,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
   },
   quickChordButton: {
     minWidth: 70,
@@ -643,10 +647,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
   },
   quickChordButtonText: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
     fontFamily: Fonts.serif,
     fontSize: 17,
     fontWeight: '700',
@@ -654,7 +658,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 410,
     padding: 18,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.mono,
     fontSize: 17,
     lineHeight: 30,
@@ -668,32 +672,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   undoText: {
     flex: 1,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
   },
   undoAction: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
   },
   bottomTools: {
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
+    borderTopColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   toolPill: {
     flex: 1,
     borderRadius: 12,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
@@ -702,7 +706,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   toolText: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.serif,
     fontSize: 13,
     fontWeight: '700',

@@ -5,7 +5,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import {
   extractLikelyOriginalKey,
   parseOcrTextToStructure,
@@ -40,6 +41,8 @@ function describeError(error: unknown): string {
 }
 
 export default function ImportSongScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
 
   const [title, setTitle] = useState('');
@@ -266,7 +269,7 @@ export default function ImportSongScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerIconButton}>
-          <MaterialIcons name="close" size={34} color={AppColors.text} />
+          <MaterialIcons name="close" size={34} color={colors.text} />
         </Pressable>
 
         <Text style={styles.headerTitle}>Scanner de Cifras</Text>
@@ -291,12 +294,12 @@ export default function ImportSongScreen() {
 
           <View style={[styles.captureButtonsRow, !isDeviceOcrAvailable && styles.hidden]}>
             <Pressable onPress={() => void pickImage('gallery')} style={styles.captureButton}>
-              <MaterialIcons name="photo-library" size={22} color={AppColors.primaryStrong} />
+              <MaterialIcons name="photo-library" size={22} color={colors.primaryStrong} />
               <Text style={styles.captureButtonText}>Galeria</Text>
             </Pressable>
 
             <Pressable onPress={() => void pickImage('camera')} style={styles.captureButton}>
-              <MaterialIcons name="photo-camera" size={22} color={AppColors.primaryStrong} />
+              <MaterialIcons name="photo-camera" size={22} color={colors.primaryStrong} />
               <Text style={styles.captureButtonText}>Camera</Text>
             </Pressable>
           </View>
@@ -313,14 +316,14 @@ export default function ImportSongScreen() {
                     style={styles.thumbRemove}
                     hitSlop={6}
                     onPress={() => setSelectedImageUris((previous) => previous.filter((_, i) => i !== index))}>
-                    <MaterialIcons name="close" size={16} color={AppColors.surface} />
+                    <MaterialIcons name="close" size={16} color="#FFFFFF" />
                   </Pressable>
                 </View>
               ))}
             </ScrollView>
           ) : (
             <View style={styles.emptyPreview}>
-              <MaterialIcons name="image" size={28} color={AppColors.textMuted} />
+              <MaterialIcons name="image" size={28} color={colors.textMuted} />
               <Text style={styles.emptyPreviewText}>
                 Selecione uma ou mais fotos da cifra, na ordem
               </Text>
@@ -335,7 +338,7 @@ export default function ImportSongScreen() {
             ]}
             onPress={() => void handleProcessOcrImage()}
             disabled={!canProcessImage || processingImage}>
-            <MaterialIcons name="document-scanner" size={20} color={AppColors.surface} />
+            <MaterialIcons name="document-scanner" size={20} color={colors.onPrimary} />
             <Text style={styles.processButtonText}>
               {processingImage
                 ? 'Lendo...'
@@ -352,7 +355,7 @@ export default function ImportSongScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder="ex. Castelo Forte"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <Text style={styles.label}>ARTISTA / COMPOSITOR</Text>
@@ -361,7 +364,7 @@ export default function ImportSongScreen() {
           value={author}
           onChangeText={setAuthor}
           placeholder="ex. Martinho Lutero"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <Text style={styles.label}>TONALIDADE ORIGINAL</Text>
@@ -370,7 +373,7 @@ export default function ImportSongScreen() {
           value={originalKey}
           onChangeText={setOriginalKey}
           placeholder="ex. C, Dm, F#"
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <View style={styles.ocrHeader}>
@@ -387,14 +390,14 @@ export default function ImportSongScreen() {
           value={ocrText}
           onChangeText={setOcrText}
           placeholder="Cole aqui o texto extraido do OCR..."
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
 
         <Pressable
           style={[styles.processButton, (!canProcessText || processingText) && styles.processButtonDisabled]}
           onPress={handleProcessOcrText}
           disabled={!canProcessText || processingText}>
-          <MaterialIcons name="tune" size={20} color={AppColors.surface} />
+          <MaterialIcons name="tune" size={20} color={colors.onPrimary} />
           <Text style={styles.processButtonText}>{processingText ? 'Processando...' : 'Processar texto OCR'}</Text>
         </Pressable>
 
@@ -405,7 +408,7 @@ export default function ImportSongScreen() {
 
         {patternNotice ? (
           <View style={styles.notice}>
-            <MaterialIcons name="auto-fix-high" size={18} color={AppColors.primaryStrong} />
+            <MaterialIcons name="auto-fix-high" size={18} color={colors.primaryStrong} />
             <Text style={styles.noticeText}>{patternNotice}</Text>
           </View>
         ) : null}
@@ -417,16 +420,17 @@ export default function ImportSongScreen() {
           value={reviewContent}
           onChangeText={setReviewContent}
           placeholder="[Verse]\n[C] Castelo forte e o nosso Deus..."
-          placeholderTextColor={AppColors.textMuted}
+          placeholderTextColor={colors.textMuted}
         />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
   unavailableText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -435,17 +439,17 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   header: {
     height: 82,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: colors.border,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
   },
   headerIconButton: {
     width: 44,
@@ -456,13 +460,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 20,
     fontWeight: '700',
   },
   saveText: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '700',
@@ -478,14 +482,14 @@ const styles = StyleSheet.create({
   },
   captureBlock: {
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     borderRadius: 18,
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
     padding: 16,
     gap: 12,
   },
   blockTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 16,
     letterSpacing: 0.8,
@@ -500,15 +504,15 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surfaceMuted,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   captureButtonText: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.serif,
     fontSize: 16,
     fontWeight: '700',
@@ -522,7 +526,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   thumbImage: {
     width: '100%',
@@ -535,12 +539,12 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbBadgeText: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -561,11 +565,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: 12,
     borderRadius: 12,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   noticeText: {
     flex: 1,
-    color: AppColors.text,
+    color: colors.text,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -573,19 +577,19 @@ const styles = StyleSheet.create({
     minHeight: 130,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surfaceMuted,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   emptyPreviewText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 13,
   },
   label: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 17,
     letterSpacing: 0.8,
@@ -595,10 +599,10 @@ const styles = StyleSheet.create({
     height: 66,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 18,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 18,
   },
@@ -609,7 +613,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   smallAction: {
-    color: AppColors.primary,
+    color: colors.primary,
     fontFamily: Fonts.serif,
     fontSize: 16,
     fontWeight: '700',
@@ -618,11 +622,11 @@ const styles = StyleSheet.create({
     minHeight: 190,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.mono,
     fontSize: 16,
     lineHeight: 24,
@@ -630,7 +634,7 @@ const styles = StyleSheet.create({
   processButton: {
     minHeight: 54,
     borderRadius: 16,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -640,7 +644,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   processButtonText: {
-    color: AppColors.surface,
+    color: colors.onPrimary,
     fontFamily: Fonts.serif,
     fontSize: 17,
     fontWeight: '700',
@@ -652,7 +656,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reviewHelp: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.sans,
     fontSize: 13,
   },
@@ -660,11 +664,11 @@ const styles = StyleSheet.create({
     minHeight: 320,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.mono,
     fontSize: 16,
     lineHeight: 27,

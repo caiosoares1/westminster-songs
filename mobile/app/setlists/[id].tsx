@@ -12,7 +12,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles } from '@/providers/theme';
 import { getTransposedKey } from '@/music/transpose';
 import { apiErrorMessage } from '@/services/api';
 import {
@@ -42,6 +43,8 @@ function toEntries(setlist: SetlistDetail): Entry[] {
 }
 
 export default function SetlistScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const setlistId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -205,7 +208,7 @@ export default function SetlistScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
           {loading ? (
-            <ActivityIndicator size="large" color={AppColors.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           ) : (
             <Text style={styles.errorText}>{error ?? 'Playlist nao encontrada.'}</Text>
           )}
@@ -218,13 +221,13 @@ export default function SetlistScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerAction}>
-          <MaterialIcons name="arrow-back" size={28} color={AppColors.primary} />
+          <MaterialIcons name="arrow-back" size={28} color={colors.primary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {setlist.name}
         </Text>
         <Pressable onPress={() => void handleDelete()} style={styles.headerAction}>
-          <MaterialIcons name="delete-outline" size={26} color={AppColors.danger} />
+          <MaterialIcons name="delete-outline" size={26} color={colors.danger} />
         </Pressable>
       </View>
 
@@ -236,14 +239,14 @@ export default function SetlistScreen() {
               value={nameInput}
               onChangeText={setNameInput}
               placeholder="Nome da playlist"
-              placeholderTextColor={AppColors.textMuted}
+              placeholderTextColor={colors.textMuted}
             />
             <TextInput
               style={styles.input}
               value={dateInput}
               onChangeText={setDateInput}
               placeholder="Data (opcional), dd/mm/aaaa"
-              placeholderTextColor={AppColors.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="numbers-and-punctuation"
             />
             <View style={styles.row}>
@@ -265,7 +268,7 @@ export default function SetlistScreen() {
                 {saving ? ' · salvando...' : ''}
               </Text>
             </View>
-            <MaterialIcons name="edit" size={22} color={AppColors.primary} />
+            <MaterialIcons name="edit" size={22} color={colors.primary} />
           </Pressable>
         )}
 
@@ -296,11 +299,11 @@ export default function SetlistScreen() {
 
             <View style={styles.keyControl}>
               <Pressable onPress={() => changeKey(index, -1)} hitSlop={6}>
-                <MaterialIcons name="remove" size={18} color={AppColors.primary} />
+                <MaterialIcons name="remove" size={18} color={colors.primary} />
               </Pressable>
               <Text style={styles.keyText}>{entry.key}</Text>
               <Pressable onPress={() => changeKey(index, 1)} hitSlop={6}>
-                <MaterialIcons name="add" size={18} color={AppColors.primary} />
+                <MaterialIcons name="add" size={18} color={colors.primary} />
               </Pressable>
             </View>
 
@@ -309,7 +312,7 @@ export default function SetlistScreen() {
                 <MaterialIcons
                   name="keyboard-arrow-up"
                   size={24}
-                  color={index === 0 ? AppColors.border : AppColors.textMuted}
+                  color={index === 0 ? colors.border : colors.textMuted}
                 />
               </Pressable>
               <Pressable
@@ -319,13 +322,13 @@ export default function SetlistScreen() {
                 <MaterialIcons
                   name="keyboard-arrow-down"
                   size={24}
-                  color={index === entries.length - 1 ? AppColors.border : AppColors.textMuted}
+                  color={index === entries.length - 1 ? colors.border : colors.textMuted}
                 />
               </Pressable>
             </View>
 
             <Pressable onPress={() => remove(index)} hitSlop={6}>
-              <MaterialIcons name="close" size={22} color={AppColors.textMuted} />
+              <MaterialIcons name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>
         ))}
@@ -338,7 +341,7 @@ export default function SetlistScreen() {
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Buscar musica"
-                placeholderTextColor={AppColors.textMuted}
+                placeholderTextColor={colors.textMuted}
               />
               <Pressable style={styles.secondaryButton} onPress={() => setPicking(false)}>
                 <Text style={styles.secondaryButtonText}>Fechar</Text>
@@ -346,7 +349,7 @@ export default function SetlistScreen() {
             </View>
             {filteredSongs.map((song) => (
               <Pressable key={song.id} style={styles.pickItem} onPress={() => addSong(song)}>
-                <MaterialIcons name="add-circle-outline" size={22} color={AppColors.primary} />
+                <MaterialIcons name="add-circle-outline" size={22} color={colors.primary} />
                 <View style={styles.flex}>
                   <Text style={styles.entryTitle} numberOfLines={1}>
                     {song.title}
@@ -364,7 +367,7 @@ export default function SetlistScreen() {
           </View>
         ) : (
           <Pressable style={styles.addButton} onPress={() => void openPicker()}>
-            <MaterialIcons name="playlist-add" size={22} color={AppColors.surface} />
+            <MaterialIcons name="playlist-add" size={22} color={colors.onPrimary} />
             <Text style={styles.primaryButtonText}>Adicionar musicas</Text>
           </Pressable>
         )}
@@ -373,23 +376,24 @@ export default function SetlistScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: AppColors.background },
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { color: AppColors.danger, fontSize: 16, textAlign: 'center' },
+  errorText: { color: colors.danger, fontSize: 16, textAlign: 'center' },
   header: {
     height: 64,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   headerAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: {
     flex: 1,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 19,
     fontWeight: '700',
@@ -402,27 +406,27 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderRadius: 16,
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   infoText: { flex: 1, gap: 4 },
   infoEdit: { gap: 10 },
-  title: { color: AppColors.text, fontFamily: Fonts.serif, fontSize: 22, fontWeight: '700' },
-  meta: { color: AppColors.primaryStrong, fontSize: 14 },
+  title: { color: colors.text, fontFamily: Fonts.serif, fontSize: 22, fontWeight: '700' },
+  meta: { color: colors.primaryStrong, fontSize: 14 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   flex: { flex: 1 },
   input: {
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
-    color: AppColors.text,
+    color: colors.text,
     fontSize: 16,
   },
-  emptyText: { color: AppColors.textMuted, fontSize: 15, paddingVertical: 8 },
+  emptyText: { color: colors.textMuted, fontSize: 15, paddingVertical: 8 },
   entry: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -430,14 +434,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: AppColors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
-  position: { width: 20, color: AppColors.textMuted, fontWeight: '700', textAlign: 'center' },
+  position: { width: 20, color: colors.textMuted, fontWeight: '700', textAlign: 'center' },
   entryText: { flex: 1, gap: 2 },
-  entryTitle: { color: AppColors.text, fontFamily: Fonts.serif, fontSize: 16, fontWeight: '700' },
-  entryMeta: { color: AppColors.textMuted, fontSize: 13 },
+  entryTitle: { color: colors.text, fontFamily: Fonts.serif, fontSize: 16, fontWeight: '700' },
+  entryMeta: { color: colors.textMuted, fontSize: 13 },
   keyControl: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,12 +449,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   keyText: {
     minWidth: 30,
     textAlign: 'center',
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.mono,
     fontWeight: '700',
     fontSize: 15,
@@ -460,14 +464,14 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   pickItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   addButton: {
     marginTop: 6,
     minHeight: 50,
     borderRadius: 14,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -477,20 +481,20 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 46,
     borderRadius: 12,
-    backgroundColor: AppColors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: { color: AppColors.surface, fontWeight: '700', fontSize: 16 },
+  primaryButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 16 },
   secondaryButton: {
     minHeight: 46,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonText: { color: AppColors.primaryStrong, fontWeight: '700', fontSize: 15 },
+  secondaryButtonText: { color: colors.primaryStrong, fontWeight: '700', fontSize: 15 },
 });

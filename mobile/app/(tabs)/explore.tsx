@@ -4,7 +4,8 @@ import { useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppColors, Fonts } from '@/constants/theme';
+import { Fonts, type AppPalette } from '@/constants/theme';
+import { useTheme, useThemedStyles, type ThemeMode } from '@/providers/theme';
 import { useAuth } from '@/providers/auth';
 import { apiErrorMessage } from '@/services/api';
 import { getMembers, removeMember, setMemberRole, type Member } from '@/services/auth';
@@ -12,7 +13,15 @@ import { confirmAction, showMessage } from '@/utils/dialog';
 
 const ROLE_LABEL = { admin: 'Administrador', member: 'Membro' } as const;
 
+const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { mode: 'system', label: 'Automático', icon: 'brightness-auto' },
+  { mode: 'light', label: 'Claro', icon: 'light-mode' },
+  { mode: 'dark', label: 'Escuro', icon: 'dark-mode' },
+];
+
 export default function SettingsScreen() {
+  const { colors, mode, setMode } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { user, isAdmin, signOut } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +94,7 @@ export default function SettingsScreen() {
         <View style={styles.block}>
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowIcon}>
-              <MaterialIcons name="person" size={22} color={AppColors.primary} />
+              <MaterialIcons name="person" size={22} color={colors.primary} />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>{user?.name}</Text>
@@ -96,6 +105,30 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <Text style={styles.sectionTitle}>Tema</Text>
+        <View style={styles.themeRow}>
+          {THEME_OPTIONS.map((option) => {
+            const selected = option.mode === mode;
+            return (
+              <Pressable
+                key={option.mode}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                style={[styles.themeOption, selected && styles.themeOptionSelected]}
+                onPress={() => setMode(option.mode)}>
+                <MaterialIcons
+                  name={option.icon}
+                  size={20}
+                  color={selected ? colors.onPrimary : colors.primary}
+                />
+                <Text style={[styles.themeLabel, selected && styles.themeLabelSelected]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <Text style={styles.sectionTitle}>Membros do grupo</Text>
         {isAdmin ? (
           <Text style={styles.hint}>
@@ -104,7 +137,7 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
 
-        {loading ? <ActivityIndicator color={AppColors.primary} /> : null}
+        {loading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {members.length > 0 ? (
@@ -119,7 +152,7 @@ export default function SettingsScreen() {
                     <MaterialIcons
                       name={member.role === 'admin' ? 'verified-user' : 'person-outline'}
                       size={21}
-                      color={AppColors.primary}
+                      color={colors.primary}
                     />
                   </View>
                   <View style={styles.rowText}>
@@ -135,11 +168,11 @@ export default function SettingsScreen() {
                         <MaterialIcons
                           name={member.role === 'admin' ? 'remove-moderator' : 'add-moderator'}
                           size={22}
-                          color={AppColors.primary}
+                          color={colors.primary}
                         />
                       </Pressable>
                       <Pressable onPress={() => void handleRemove(member)} hitSlop={6}>
-                        <MaterialIcons name="person-remove" size={22} color={AppColors.danger} />
+                        <MaterialIcons name="person-remove" size={22} color={colors.danger} />
                       </Pressable>
                     </View>
                   ) : null}
@@ -150,7 +183,7 @@ export default function SettingsScreen() {
         ) : null}
 
         <Pressable style={styles.signOut} onPress={() => void handleSignOut()}>
-          <MaterialIcons name="logout" size={20} color={AppColors.danger} />
+          <MaterialIcons name="logout" size={20} color={colors.danger} />
           <Text style={styles.signOutText}>Sair</Text>
         </Pressable>
       </ScrollView>
@@ -158,10 +191,37 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppPalette) =>
+  StyleSheet.create({
+  themeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  themeOptionSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  themeLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  themeLabelSelected: {
+    color: colors.onPrimary,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: AppColors.background,
+    backgroundColor: colors.background,
   },
   container: {
     paddingHorizontal: 20,
@@ -170,21 +230,21 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   pageTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 28,
     fontWeight: '700',
   },
   pageSubtitle: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 14,
   },
   block: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   row: {
@@ -195,13 +255,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: colors.border,
   },
   rowIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -210,13 +270,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   rowTitle: {
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 17,
     fontWeight: '700',
   },
   rowValue: {
-    color: AppColors.primaryStrong,
+    color: colors.primaryStrong,
     fontFamily: Fonts.sans,
     fontSize: 13,
   },
@@ -225,18 +285,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 8,
-    color: AppColors.text,
+    color: colors.text,
     fontFamily: Fonts.serif,
     fontSize: 20,
     fontWeight: '700',
   },
   hint: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
   errorText: {
-    color: AppColors.danger,
+    color: colors.danger,
     fontSize: 14,
   },
   memberActions: {
@@ -253,18 +313,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppColors.danger,
+    borderColor: colors.danger,
   },
   signOutText: {
-    color: AppColors.danger,
+    color: colors.danger,
     fontSize: 16,
     fontWeight: '700',
   },
   notice: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surfaceMuted,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -273,7 +333,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 18,
