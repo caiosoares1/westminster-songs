@@ -68,6 +68,8 @@ export default function SongFormScreen() {
   const [originalKey, setOriginalKey] = useState('');
   const [author, setAuthor] = useState('');
   const [content, setContent] = useState(isEditing ? '' : INITIAL_CONTENT);
+  /** Content before the last "Acordes automáticos", to undo it. */
+  const [contentBeforeAuto, setContentBeforeAuto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(isEditing);
@@ -122,7 +124,13 @@ export default function SongFormScreen() {
 
   const handleAutoChords = () => {
     try {
-      setContent(chordsAboveLyricsToBracket(content));
+      const converted = chordsAboveLyricsToBracket(content);
+      if (converted.trim() === content.trim()) {
+        showMessage('Nada para mudar', 'Nao encontrei acordes acima da letra nem estrofes para completar.');
+        return;
+      }
+      setContentBeforeAuto(content);
+      setContent(converted);
     } catch {
       showMessage('Nada para converter', 'Cole a cifra com os acordes na linha de cima da letra.');
     }
@@ -138,6 +146,7 @@ export default function SongFormScreen() {
     try {
       const result = transposeEditorContent(content, key, steps);
       setContent(result.content);
+      setContentBeforeAuto(null);
       setOriginalKey(result.key);
     } catch {
       showMessage('Erro', 'Nao foi possivel interpretar a letra/cifras.');
@@ -152,6 +161,7 @@ export default function SongFormScreen() {
     );
     if (confirmed && isSongStructure(version.structureJson)) {
       setContent(structureToBracketContent(version.structureJson));
+      setContentBeforeAuto(null);
       setPanel('none');
     }
   };
@@ -328,7 +338,10 @@ export default function SongFormScreen() {
             style={styles.textArea}
             multiline
             value={content}
-            onChangeText={setContent}
+            onChangeText={(text) => {
+              setContent(text);
+              setContentBeforeAuto(null);
+            }}
             placeholder="[C]Castelo forte é [G]nosso Deus"
             placeholderTextColor={AppColors.textMuted}
           />
@@ -382,23 +395,43 @@ export default function SongFormScreen() {
         </View>
       ) : null}
 
+      {contentBeforeAuto !== null ? (
+        <View style={styles.undoBar}>
+          <Text style={styles.undoText}>Acordes aplicados. Confira a letra.</Text>
+          <Pressable
+            hitSlop={8}
+            onPress={() => {
+              setContent(contentBeforeAuto);
+              setContentBeforeAuto(null);
+            }}>
+            <Text style={styles.undoAction}>Desfazer</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.bottomTools}>
         <Pressable style={styles.toolPill} onPress={handleAutoChords}>
-          <MaterialIcons name="music-note" size={21} color={AppColors.primary} />
-          <Text style={styles.toolText}>Acordes automaticos</Text>
+          <MaterialIcons name="auto-fix-high" size={20} color={AppColors.primary} />
+          <Text style={styles.toolText} numberOfLines={1}>
+            Acordes
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.toolPill, panel === 'transpose' && styles.toolPillActive]}
           onPress={() => setPanel(panel === 'transpose' ? 'none' : 'transpose')}>
           <MaterialIcons name="swap-vert" size={21} color={AppColors.primary} />
-          <Text style={styles.toolText}>Transpor</Text>
+          <Text style={styles.toolText} numberOfLines={1}>
+            Transpor
+          </Text>
         </Pressable>
         {isEditing ? (
           <Pressable
             style={[styles.toolPill, panel === 'history' && styles.toolPillActive]}
             onPress={() => setPanel(panel === 'history' ? 'none' : 'history')}>
             <MaterialIcons name="history" size={21} color={AppColors.primary} />
-            <Text style={styles.toolText}>Historico</Text>
+            <Text style={styles.toolText} numberOfLines={1}>
+              Histórico
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -627,25 +660,46 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlignVertical: 'top',
   },
+  undoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
+    backgroundColor: AppColors.surface,
+  },
+  undoText: {
+    flex: 1,
+    color: AppColors.textMuted,
+    fontSize: 13,
+  },
+  undoAction: {
+    color: AppColors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   bottomTools: {
     borderTopWidth: 1,
     borderTopColor: AppColors.border,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     backgroundColor: AppColors.background,
   },
   toolPill: {
     flex: 1,
-    borderRadius: 999,
+    borderRadius: 12,
     backgroundColor: AppColors.surfaceMuted,
-    minHeight: 70,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   toolText: {
     color: AppColors.primaryStrong,
