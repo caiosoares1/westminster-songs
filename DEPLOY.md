@@ -7,7 +7,7 @@ Tudo grátis, sem cartão:
 | API (NestJS) | **Render** (plano Free) | Fica sempre ligada: ela mesma se acessa a cada 10 min |
 | Banco (Postgres) | **Neon** (plano Free) | 1 GB, com backup gerenciado |
 | Leitura de fotos (OCR) | **No celular** (ML Kit do Google) | Offline; só no APK, não no Expo Go |
-| App Android | **APK pelo EAS Build (Expo)** | Você manda o link, o grupo instala |
+| App Android | **APK compilado pelo GitHub Actions** | Link fixo; o grupo baixa e instala |
 
 Não precisa de domínio: o endereço da API fica `https://westminster-api.onrender.com` (ou parecido).
 
@@ -46,28 +46,40 @@ O plano Free dá 750 horas por mês, o suficiente para **um** serviço ligado o 
 
 ## 4. APK para Android
 
-No seu computador, na pasta do projeto:
+O **GitHub compila o APK sozinho** (workflow `.github/workflows/android-apk.yml`, grátis em repositório público) e publica num link fixo:
+
+**<https://github.com/caiosoares1/westminster-songs/releases/latest/download/westminster-songs.apk>**
+
+Esse link sempre entrega a versão mais nova. Mande no grupo; no Android, a pessoa abre, baixa e permite "instalar apps desta fonte" quando o celular pedir.
+
+### Configuração (uma vez só): chave de assinatura
+
+O Android só instala uma versão nova por cima da antiga se ela for assinada com a **mesma chave**. A chave **não fica no repositório** (que é público): ela vai em dois secrets do GitHub.
+
+1. No GitHub: repositório → **Settings → Secrets and variables → Actions → New repository secret**.
+2. Crie os dois:
+
+   | Name | Secret |
+   |---|---|
+   | `ANDROID_KEYSTORE_BASE64` | o conteúdo do arquivo `ANDROID_KEYSTORE_BASE64.txt` (uma linha longa) |
+   | `ANDROID_KEYSTORE_PASSWORD` | o conteúdo do arquivo `ANDROID_KEYSTORE_PASSWORD.txt` |
+
+3. **Guarde os dois arquivos fora do GitHub** (ex.: Google Drive pessoal, gerenciador de senhas). O GitHub não deixa ler um secret depois de salvo; sem eles, um app novo só instala depois de desinstalar o antigo (os dados ficam no servidor, só é preciso entrar de novo).
+
+Para gerar uma chave nova (só se perder a antiga), com Java instalado:
 
 ```
-npm install -g eas-cli
-cd mobile
-eas login
-eas init
+keytool -genkeypair -storetype PKCS12 -keystore release.p12 -alias westminster -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Westminster Songs"
+base64 -w0 release.p12   # vira o ANDROID_KEYSTORE_BASE64
 ```
 
-(`eas init` grava um `projectId` no `app.json`; faça commit dessa mudança.)
+### Quando ele compila
 
-Confira se `EXPO_PUBLIC_API_URL` em `mobile/eas.json` é o endereço do passo 2.5 (hoje: `https://westminster-api.onrender.com`) e gere o APK:
+A cada push na `main` que mude algo em `mobile/`, ou manualmente em **Actions → APK Android → Run workflow**. Leva uns 20 minutos; acompanhe na aba **Actions**. Cada build ganha um número novo, então o APK novo instala por cima do antigo, sem perder o login.
 
-```
-eas build --platform android --profile apk
-```
-
-O build roda nos servidores da Expo (no plano grátis pode ficar na fila). No fim aparece um link: mande no grupo. No Android, a pessoa permite "instalar apps desta fonte" quando o celular pedir.
+O endereço da API que vai dentro do APK é o `EXPO_PUBLIC_API_URL` de `mobile/eas.json` (hoje `https://westminster-api.onrender.com`).
 
 **Crie a sua conta antes de mandar para o grupo:** a primeira conta vira **administrador** (pode excluir músicas e gerenciar membros na aba Conta).
-
-**Atualizar o app:** aumente `versionCode` em `mobile/app.json` (1 → 2…), rode o `eas build` de novo e mande o novo link.
 
 **Importar por foto** usa o reconhecimento de texto do próprio celular, então só funciona no APK. No Expo Go (desenvolvimento), a tela mostra um aviso e dá para colar o texto da cifra.
 
@@ -84,7 +96,7 @@ O build roda nos servidores da Expo (no plano grátis pode ficar na fila). No fi
 
 - **Render Free**: 512 MB de memória e CPU modesta; suficiente para a API (o OCR, que era a parte pesada, roda no celular). O Render pode reiniciar serviços Free de vez em quando; a API volta sozinha em segundos.
 - **Neon**: 1 GB de dados; dorme quando ninguém usa e acorda em fração de segundo.
-- **EAS Build**: até 15 builds Android por mês.
+- **GitHub Actions**: ilimitado em repositório público.
 
 ## Segurança
 

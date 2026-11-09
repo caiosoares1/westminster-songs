@@ -1,0 +1,118 @@
+# Builds the Android APK on GitHub's servers and publishes it as a release:
+#   https://github.com/caiosoares1/westminster-songs/releases/latest/download/westminster-songs.apk
+#
+# Runs on every push to main that changes the app, or manually
+# (Actions -> "APK Android" -> Run workflow).
+# Needs the repository secrets ANDROID_KEYSTORE_BASE64 and
+# ANDROID_KEYSTORE_PASSWORD (see DEPLOY.md).
+name: APK Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Crie os secrets ANDROID_KEYSTORE_BASE64 e ANDROID_KEYSTORE_PASSWORD em Settings > Secrets and variables > Actions (veja DEPLOY.md)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Version and API address
+        run: |
+          # versionCode must grow for Android to install updates over the old app.
+          jq --argjson code "$GITHUB_RUN_NUMBER" '.expo.android.versionCode = $code' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "APP_VERSION=$(jq -r '.expo.version' app.json)" >> "$GITHUB_ENV"
+          API_URL=$(jq -r '.build.apk.env.EXPO_PUBLIC_API_URL' eas.json)
+          case "$API_URL" in
+            https://*) ;;
+            *) echo "::error::EXPO_PUBLIC_API_URL em mobile/eas.json precisa ser o endereço https da API."; exit 1 ;;
+          esac
+          echo "EXPO_PUBLIC_API_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "API: $API_URL | versão $(jq -r '.expo.version' app.json) build $GITHUB_RUN_NUMBER"
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+        env:
+          CI: "1"
+
+      - name: Build
+        working-directory: mobile/android
+        run: >-
+          ./gradlew assembleRelease --no-daemon
+          -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
+
+      - name: Sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          # The signing key only exists in the secret; written to the runner's
+          # temp dir (deleted after the job), never to the repository.
+          KEYSTORE="$RUNNER_TEMP/release.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$BUILD_TOOLS/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release.apk aligned.apk
+          # Replaces the debug signature with the app's fixed key, so new
+          # versions install over the old one.
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE" --ks-type PKCS12 --ks-key-alias westminster \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --out westminster-songs.apk aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --print-certs westminster-songs.apk | grep -m1 "SHA-256"
+          rm -f "$KEYSTORE"
+          ls -lh westminster-songs.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="android-v${APP_VERSION}-build.${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" westminster-songs.apk \
+            --target "$GITHUB_SHA" \
+            --title "App Android ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" \
+            --latest \
+            --notes "Baixe no celular Android e instale. Link fixo para a versão mais nova: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/westminster-songs.apk"
