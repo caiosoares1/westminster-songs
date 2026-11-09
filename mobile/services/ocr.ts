@@ -1,26 +1,31 @@
-import type { OcrToken } from '@/music/ocrParser';
-import api from '@/services/api';
+import { requireOptionalNativeModule } from 'expo';
 
-export interface OcrExtractResult {
+import { recognizedTextToTokens, type RecognizedText } from '@/music/mlkit';
+import type { OcrToken } from '@/music/ocrParser';
+
+// On-device text recognition (Google ML Kit) from
+// @infinitered/react-native-mlkit-text-recognition. Loaded by its native
+// module name so the app doesn't crash where the module isn't compiled in
+// (Expo Go, web): there it is null and the import by photo is unavailable.
+interface TextRecognitionModule {
+  recognizeText: (imageUri: string) => Promise<RecognizedText>;
+}
+
+const textRecognition = requireOptionalNativeModule<TextRecognitionModule>('RNMLKitTextRecognition');
+
+export const isDeviceOcrAvailable = textRecognition !== null;
+
+export interface OcrResult {
   fullText: string;
+  /** Each recognized word with its position, used to align chords and lyrics. */
   tokens: OcrToken[];
 }
 
-interface OcrExtractResponse {
-  fullText: string;
-  tokens?: OcrToken[];
-}
+export async function recognizeImage(imageUri: string): Promise<OcrResult> {
+  if (!textRecognition) {
+    throw new Error('OCR indisponivel neste app');
+  }
 
-export async function extractTextFromImageBase64(base64Content: string): Promise<OcrExtractResult> {
-  // Uploading a photo and running OCR can take longer than the default 10s.
-  const { data } = await api.post<OcrExtractResponse>(
-    '/ocr/extract',
-    { imageBase64: base64Content },
-    { timeout: 60_000 },
-  );
-
-  return {
-    fullText: data.fullText,
-    tokens: Array.isArray(data.tokens) ? data.tokens : [],
-  };
+  const result = await textRecognition.recognizeText(imageUri);
+  return { fullText: result.text, tokens: recognizedTextToTokens(result) };
 }

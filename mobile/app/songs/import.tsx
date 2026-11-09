@@ -11,7 +11,7 @@ import {
   parseOcrTextToStructure,
   parseOcrTokensToStructure,
 } from '@/music/ocrParser';
-import { extractTextFromImageBase64 } from '@/services/ocr';
+import { isDeviceOcrAvailable, recognizeImage } from '@/services/ocr';
 import { normalizeKey } from '@/music/chordParser';
 import { apiErrorMessage } from '@/services/api';
 import { showMessage } from '@/utils/dialog';
@@ -38,16 +38,12 @@ export default function ImportSongScreen() {
   const [ocrText, setOcrText] = useState(SAMPLE_OCR_TEXT);
   const [reviewContent, setReviewContent] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [selectedImageBase64, setSelectedImageBase64] = useState<string | null>(null);
   const [processingText, setProcessingText] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const canProcessText = useMemo(() => ocrText.trim().length > 0, [ocrText]);
-  const canProcessImage = useMemo(
-    () => typeof selectedImageBase64 === 'string' && selectedImageBase64.length > 0,
-    [selectedImageBase64]
-  );
+  const canProcessImage = selectedImageUri !== null;
   const canSave = useMemo(
     () => title.trim().length > 0 && originalKey.trim().length > 0 && reviewContent.trim().length > 0,
     [title, originalKey, reviewContent]
@@ -88,13 +84,11 @@ export default function ImportSongScreen() {
         source === 'gallery'
           ? await ImagePicker.launchImageLibraryAsync({
               mediaTypes: imageMediaType,
-              quality: 0.8,
-              base64: true,
+              quality: 1,
             })
           : await ImagePicker.launchCameraAsync({
               mediaTypes: imageMediaType,
-              quality: 0.8,
-              base64: true,
+              quality: 1,
             });
 
       if (result.canceled) {
@@ -103,11 +97,6 @@ export default function ImportSongScreen() {
 
       const selectedAsset = result.assets[0];
       setSelectedImageUri(selectedAsset.uri);
-      setSelectedImageBase64(selectedAsset.base64 ?? null);
-
-      if (!selectedAsset.base64) {
-        showMessage('Falha ao ler imagem', 'A imagem foi selecionada, mas sem conteudo base64 para OCR.');
-      }
     } catch (error) {
       console.error(`Error selecting image from ${source}:`, error);
       showMessage('Erro', 'Nao foi possivel selecionar a imagem.');
@@ -133,14 +122,19 @@ export default function ImportSongScreen() {
   };
 
   const handleProcessOcrImage = async () => {
-    if (!canProcessImage || !selectedImageBase64) {
+    if (!selectedImageUri) {
       showMessage('Imagem ausente', 'Selecione uma imagem antes de processar.');
       return;
     }
 
     try {
       setProcessingImage(true);
-      const ocrResult = await extractTextFromImageBase64(selectedImageBase64);
+      // Text recognition runs on the phone (ML Kit): no upload, works offline.
+      const ocrResult = await recognizeImage(selectedImageUri);
+      if (!ocrResult.fullText.trim()) {
+        showMessage('Nenhum texto encontrado', 'Tente uma foto mais nitida, de frente e bem iluminada.');
+        return;
+      }
       setOcrText(ocrResult.fullText);
 
       const structureJson =
@@ -151,7 +145,7 @@ export default function ImportSongScreen() {
       applyParsedStructure(structureJson);
     } catch (error) {
       console.error('Error processing OCR image:', error);
-      showMessage('Erro OCR', apiErrorMessage(error, 'Nao foi possivel extrair texto da imagem.'));
+      showMessage('Erro OCR', 'Nao foi possivel ler a imagem. Tente outra foto ou cole o texto abaixo.');
     } finally {
       setProcessingImage(false);
     }
@@ -219,7 +213,14 @@ export default function ImportSongScreen() {
         <View style={styles.captureBlock}>
           <Text style={styles.blockTitle}>CAPTURA</Text>
 
-          <View style={styles.captureButtonsRow}>
+          {!isDeviceOcrAvailable ? (
+            <Text style={styles.unavailableText}>
+              A leitura de fotos funciona no app instalado (APK). Aqui, cole o texto da cifra
+              mais abaixo.
+            </Text>
+          ) : null}
+
+          <View style={[styles.captureButtonsRow, !isDeviceOcrAvailable && styles.hidden]}>
             <Pressable onPress={() => void pickImage('gallery')} style={styles.captureButton}>
               <MaterialIcons name="photo-library" size={22} color={AppColors.primaryStrong} />
               <Text style={styles.captureButtonText}>Galeria</Text>
@@ -231,7 +232,7 @@ export default function ImportSongScreen() {
             </Pressable>
           </View>
 
-          {selectedImageUri ? (
+          {!isDeviceOcrAvailable ? null : selectedImageUri ? (
             <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
           ) : (
             <View style={styles.emptyPreview}>
@@ -241,7 +242,11 @@ export default function ImportSongScreen() {
           )}
 
           <Pressable
-            style={[styles.processButton, (!canProcessImage || processingImage) && styles.processButtonDisabled]}
+            style={[
+              styles.processButton,
+              (!canProcessImage || processingImage) && styles.processButtonDisabled,
+              !isDeviceOcrAvailable && styles.hidden,
+            ]}
             onPress={() => void handleProcessOcrImage()}
             disabled={!canProcessImage || processingImage}>
             <MaterialIcons name="document-scanner" size={20} color={AppColors.surface} />
@@ -323,6 +328,14 @@ export default function ImportSongScreen() {
 }
 
 const styles = StyleSheet.create({
+  unavailableText: {
+    color: AppColors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  hidden: {
+    display: 'none',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: AppColors.background,

@@ -1,0 +1,31 @@
+# Render Blueprint: creates the API on the free plan.
+# Render dashboard -> New -> Blueprint -> pick this repository.
+services:
+  - type: web
+    name: westminster-api
+    runtime: node
+    plan: free
+    # Close to the Neon database (create it in AWS US East 2 / Ohio).
+    region: ohio
+    rootDir: backend
+    # --include=dev: the build needs the Nest CLI and TypeScript even with
+    # NODE_ENV=production.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    # Applies pending database migrations, then starts the API.
+    startCommand: npx prisma migrate deploy && node dist/main
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
+      - key: DATABASE_URL
+        sync: false
+      - key: GROUP_INVITE_CODE
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
