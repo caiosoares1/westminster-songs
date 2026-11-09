@@ -4,7 +4,7 @@ Tudo grátis, sem cartão:
 
 | Parte | Onde | Observação |
 |---|---|---|
-| API (NestJS) | **Render** (plano Free) | Fica sempre ligada com um "despertador" a cada 10 min |
+| API (NestJS) | **Render** (plano Free) | Fica sempre ligada: ela mesma se acessa a cada 10 min |
 | Banco (Postgres) | **Neon** (plano Free) | 1 GB, com backup gerenciado |
 | Leitura de fotos (OCR) | **No celular** (ML Kit do Google) | Offline; só no APK, não no Expo Go |
 | App Android | **APK pelo EAS Build (Expo)** | Você manda o link, o grupo instala |
@@ -36,10 +36,11 @@ A partir daí, **todo push na `main` publica a API de novo** automaticamente.
 
 ## 3. Despertador (para a API não dormir)
 
-No plano Free, o Render desliga a API depois de 15 minutos sem acesso, e ela leva cerca de 1 minuto para acordar. Um acesso a cada 10 minutos evita isso:
+No plano Free, o Render desliga a API depois de 15 minutos sem acesso, e ela leva cerca de 1 minuto para acordar.
 
-1. Crie uma conta grátis em <https://cron-job.org>.
-2. **Create cronjob**: URL = o endereço da API (o mesmo do passo 2.5), **Every 10 minutes**, salvar.
+**Não precisa fazer nada:** no Render, a própria API acessa o endereço público dela a cada 10 minutos, e isso conta como acesso. Nos **Logs** aparece `Pinging https://...onrender.com every 10 min` quando ela sobe. (Para desligar: variável `KEEP_ALIVE=false` em *Environment*.)
+
+**Reforço opcional:** se o Render desligar a API por motivo próprio (manutenção, por exemplo), ela só volta quando alguém abrir o app (cerca de 1 minuto) e depois se mantém ligada de novo. Para ela voltar mesmo sem ninguém abrir o app, crie também um cronjob grátis em <https://cron-job.org> com a URL da API, a cada 10 minutos.
 
 O plano Free dá 750 horas por mês, o suficiente para **um** serviço ligado o mês todo. Não crie outro serviço Free na mesma conta do Render, senão as horas acabam antes do fim do mês.
 
@@ -56,7 +57,7 @@ eas init
 
 (`eas init` grava um `projectId` no `app.json`; faça commit dessa mudança.)
 
-Em `mobile/eas.json`, troque `https://COLE-AQUI-A-URL-DA-API` pelo endereço do passo 2.5 e gere o APK:
+Confira se `EXPO_PUBLIC_API_URL` em `mobile/eas.json` é o endereço do passo 2.5 (hoje: `https://westminster-api.onrender.com`) e gere o APK:
 
 ```
 eas build --platform android --profile apk
