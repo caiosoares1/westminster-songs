@@ -93,6 +93,16 @@ Contai seus feitos sem cessar.`;
   });
 });
 
+describe('fillChordsFromPattern safety', () => {
+  it('leaves stanzas with a different number of lines without chords', () => {
+    const structure = parseBracketContentToStructure(
+      '[C]Louvai ao [G]Senhor\n[F]Que reina com [C]poder\n\nUma linha solta sem acordes',
+    );
+    const filled = structureToBracketContent(fillChordsFromPattern(structure));
+    assert.match(filled, /\nUma linha solta sem acordes/);
+  });
+});
+
 describe('blank lines and stanzas', () => {
   it('ignores blank lines that are OCR noise (one after almost every line)', () => {
     const noisy = 'C        G\n\nLouvai ao Senhor\n\nAm       F\n\nQue reina com poder\n';

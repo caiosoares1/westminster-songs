@@ -122,18 +122,20 @@ const baseType = (type: string) => type.replace(/\s*\d+$/, '');
 function chooseModel(section: SongSection, chorded: SongSection[]): SongSection | undefined {
   const size = lyricLines(section).length;
   const sameType = chorded.filter((candidate) => baseType(candidate.type) === baseType(section.type));
+  // Only stanzas with the same number of lines share a melody; anything else
+  // (a misread page, a different part) is left without chords.
   return (
     sameType.find((candidate) => lyricLines(candidate).length === size) ??
-    sameType[0] ??
-    chorded.find((candidate) => lyricLines(candidate).length === size) ??
-    chorded.find((candidate) => baseType(candidate.type) === 'verse') ??
-    chorded[0]
+    chorded.find(
+      (candidate) => baseType(candidate.type) === 'verse' && lyricLines(candidate).length === size,
+    ) ??
+    chorded.find((candidate) => lyricLines(candidate).length === size)
   );
 }
 
 /**
- * Sections with lyrics but no chords get the chords of the most similar
- * chorded section (same type and same number of lines first).
+ * Sections with lyrics but no chords get the chords of a chorded section
+ * with the same number of lines (same type first, then a verse).
  */
 export function fillChordsFromPattern(structure: SongStructure): SongStructure {
   const chorded = structure.sections.filter(sectionHasChords);
