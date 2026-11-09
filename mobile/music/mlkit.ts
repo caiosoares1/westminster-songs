@@ -18,15 +18,18 @@ export interface RecognizedText {
 
 /** Flattens ML Kit's result into positioned words for the OCR parser. */
 export function recognizedTextToTokens(result: RecognizedText): OcrToken[] {
-  return result.blocks.flatMap((block) =>
-    block.lines.flatMap((line) =>
-      line.elements.map((element) => ({
-        text: element.text,
-        x: element.frame.left,
-        y: element.frame.top,
-        width: element.frame.right - element.frame.left,
-        height: element.frame.bottom - element.frame.top,
-      })),
+  return (result.blocks ?? []).flatMap((block) =>
+    (block.lines ?? []).flatMap((line) =>
+      (line.elements ?? [])
+        // ML Kit may leave a word without a bounding box.
+        .filter((element) => element.text && element.frame)
+        .map((element) => ({
+          text: element.text,
+          x: element.frame.left,
+          y: element.frame.top,
+          width: element.frame.right - element.frame.left,
+          height: element.frame.bottom - element.frame.top,
+        })),
     ),
   );
 }
