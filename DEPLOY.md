@@ -57,7 +57,7 @@ eas init
 
 (`eas init` grava um `projectId` no `app.json`; faça commit dessa mudança.)
 
-Em `mobile/eas.json`, troque `https://COLE-AQUI-A-URL-DA-API` pelo endereço do passo 2.5 e gere o APK:
+Confira se `EXPO_PUBLIC_API_URL` em `mobile/eas.json` é o endereço do passo 2.5 (hoje: `https://westminster-api.onrender.com`) e gere o APK:
 
 ```
 eas build --platform android --profile apk
