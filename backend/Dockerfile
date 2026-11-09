@@ -1,4 +1,4 @@
-# API image for Cloud Run (or any Docker host).
+# API image for any Docker host (Render uses the native Node runtime instead).
 # Build: docker build -t westminster-api .
 
 FROM node:22-bookworm-slim AS build
@@ -16,10 +16,8 @@ RUN npx prisma generate \
   && npm prune --omit=dev
 
 FROM node:22-bookworm-slim
-# Tesseract with Portuguese and English for the OCR import.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-    tesseract-ocr tesseract-ocr-por tesseract-ocr-eng openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

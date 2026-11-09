@@ -10,8 +10,13 @@ async function bootstrap() {
 
   // Behind Cloud Run's load balancer: take the client IP from
   // X-Forwarded-For, so rate limiting is per user and not per proxy.
-  if (process.env.TRUST_PROXY) {
-    app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+  // "true" trusts the whole chain (req.ip = first address in the header).
+  const trustProxy = process.env.TRUST_PROXY?.trim();
+  if (trustProxy) {
+    app.set(
+      'trust proxy',
+      trustProxy === 'true' ? true : Number(trustProxy) || 1,
+    );
   }
 
   // Comma-separated list of web origins allowed to call the API (only
@@ -23,7 +28,7 @@ async function bootstrap() {
     app.enableCors({ origin: corsOrigins });
   }
 
-  const bodyLimit = process.env.BODY_LIMIT ?? '10mb';
+  const bodyLimit = process.env.BODY_LIMIT ?? '1mb';
 
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));

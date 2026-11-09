@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { OcrModule } from './ocr/ocr.module';
+import { ClientIpThrottlerGuard } from './client-ip.throttler.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { SetlistsModule } from './setlists/setlists.module';
 import { SongsModule } from './songs/songs.module';
@@ -19,9 +19,11 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     SongsModule,
     SetlistsModule,
-    OcrModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ClientIpThrottlerGuard },
+  ],
 })
 export class AppModule {}
