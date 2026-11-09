@@ -144,11 +144,14 @@ export function parseBracketContentToStructure(content: string): SongStructure {
     return currentSection;
   };
 
+  let pendingBreak = false;
+
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trimEnd();
     const trimmed = line.trim();
 
     if (!trimmed) {
+      pendingBreak = true;
       continue;
     }
 
@@ -157,8 +160,19 @@ export function parseBracketContentToStructure(content: string): SongStructure {
     if (sectionMatch && !isChordToken(sectionMatch[1])) {
       currentSection = { type: normalizeSectionType(sectionMatch[1]), lines: [] };
       sections.push(currentSection);
+      pendingBreak = false;
       continue;
     }
+
+    // A blank line between blocks of lyrics without a title starts a new
+    // stanza ("Verso 2", "Verso 3"...).
+    const current = currentSection as SongSection | null;
+    if (pendingBreak && current && current.lines.length > 0) {
+      const verses = sections.filter((section) => section.type.startsWith('verse')).length;
+      currentSection = { type: verses === 0 ? 'verse' : `verse ${verses + 1}`, lines: [] };
+      sections.push(currentSection);
+    }
+    pendingBreak = false;
 
     const section = ensureSection();
     section.lines.push({ items: parseLineToItems(line) });

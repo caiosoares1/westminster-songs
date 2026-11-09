@@ -19,7 +19,6 @@ export default function SongDetailScreen() {
   const [song, setSong] = useState<Song | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [favorite, setFavorite] = useState(false);
   const {
     steps: transpose,
     currentKey,
@@ -112,79 +111,50 @@ export default function SongDetailScreen() {
   }
 
   const structureJson = song.versions[0]?.structureJson;
+  const transposed = currentKey !== song.originalKey;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* Compact header: the chord sheet is what matters on this screen. */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.headerAction}>
-          <MaterialIcons name="arrow-back" size={31} color={AppColors.primary} />
+        <Pressable onPress={() => router.back()} style={styles.headerAction} hitSlop={6}>
+          <MaterialIcons name="arrow-back" size={26} color={AppColors.primary} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {song.title}
-        </Text>
+
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {song.title}
+          </Text>
+          {song.author ? (
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {song.author}
+            </Text>
+          ) : null}
+        </View>
+
         <Pressable
           onPress={() => router.push({ pathname: '/songs/create', params: { id: song.id } })}
-          style={styles.headerAction}>
-          <MaterialIcons name="edit" size={27} color={AppColors.primary} />
+          style={styles.headerAction}
+          hitSlop={6}>
+          <MaterialIcons name="edit" size={23} color={AppColors.primary} />
         </Pressable>
       </View>
 
-      <View style={styles.heroBlock}>
-        <View style={styles.songIconBox}>
-          <MaterialIcons name="music-note" size={56} color={AppColors.primary} />
-        </View>
-
-        <View style={styles.heroTextContent}>
-          <Text style={styles.heroTitle}>{song.title}</Text>
-          <Text style={styles.heroSubtitle}>{song.author || 'Autor desconhecido'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.toolsRow}>
-        <View style={styles.toolsLeftGroup}>
-          <Pressable style={styles.toolItem} onPress={transposeDown}>
-            <View style={styles.toolIconCircle}>
-              <MaterialIcons name="swap-vert" size={27} color={AppColors.primary} />
-            </View>
-            <Text style={styles.toolLabel}>Transpor</Text>
-          </Pressable>
-
-          <Pressable style={styles.toolItem} onPress={resetTranspose}>
-            <View style={styles.toolIconCircle}>
-              <MaterialIcons name="text-fields" size={27} color={AppColors.primary} />
-            </View>
-            <Text style={styles.toolLabel}>Reset</Text>
-          </Pressable>
-
-          <Pressable style={styles.toolItem} onPress={() => setFavorite((value) => !value)}>
-            <View style={styles.toolIconCircle}>
-              <MaterialIcons
-                name={favorite ? 'star' : 'star-border'}
-                size={27}
-                color={favorite ? AppColors.primaryStrong : AppColors.primary}
-              />
-            </View>
-            <Text style={styles.toolLabel}>Favorito</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.keyPill}>
-          <Text style={styles.keyPillText}>Tom: {currentKey}</Text>
-        </View>
-      </View>
-
-      <View style={styles.transposeActions}>
-        <Pressable style={styles.transposeButton} onPress={transposeDown}>
-          <Text style={styles.transposeButtonText}>-1</Text>
+      <View style={styles.keyBar}>
+        <Pressable style={styles.keyButton} onPress={transposeDown} hitSlop={6}>
+          <MaterialIcons name="remove" size={20} color={AppColors.primary} />
+        </Pressable>
+        <Text style={styles.keyText}>Tom: {currentKey}</Text>
+        <Pressable style={styles.keyButton} onPress={transposeUp} hitSlop={6}>
+          <MaterialIcons name="add" size={20} color={AppColors.primary} />
         </Pressable>
 
-        <Pressable style={styles.transposeButton} onPress={resetTranspose}>
-          <Text style={styles.transposeButtonText}>Reset</Text>
-        </Pressable>
-
-        <Pressable style={styles.transposeButton} onPress={transposeUp}>
-          <Text style={styles.transposeButtonText}>+1</Text>
-        </Pressable>
+        {transposed ? (
+          <Pressable style={styles.resetButton} onPress={resetTranspose} hitSlop={6}>
+            <MaterialIcons name="restart-alt" size={18} color={AppColors.textMuted} />
+            <Text style={styles.resetText}>original {song.originalKey}</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.songContent}>
@@ -207,155 +177,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.background,
   },
-  header: {
-    height: 78,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    paddingHorizontal: 16,
-    backgroundColor: AppColors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerAction: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    color: AppColors.text,
-    fontFamily: Fonts.serif,
-    fontSize: 21,
-    fontWeight: '700',
-    marginHorizontal: 12,
-  },
-  heroBlock: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'center',
-  },
-  songIconBox: {
-    width: 96,
-    height: 96,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  heroTextContent: {
-    flex: 1,
-    gap: 8,
-  },
-  heroTitle: {
-    color: AppColors.text,
-    fontFamily: Fonts.serif,
-    fontSize: 21,
-    lineHeight: 27,
-    fontWeight: '700',
-  },
-  heroSubtitle: {
-    color: AppColors.primaryStrong,
-    fontFamily: Fonts.serif,
-    fontSize: 18,
-  },
-  toolsRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  toolsLeftGroup: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  toolItem: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  toolIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  toolLabel: {
-    color: AppColors.text,
-    fontFamily: Fonts.serif,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  keyPill: {
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    borderRadius: 999,
-    minHeight: 58,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    backgroundColor: AppColors.surface,
-  },
-  keyPillText: {
-    color: AppColors.primaryStrong,
-    fontFamily: Fonts.serif,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  transposeActions: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  transposeButton: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transposeButtonText: {
-    color: AppColors.primaryStrong,
-    fontFamily: Fonts.serif,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  songContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
+  errorText: {
+    color: '#b42318',
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+  },
   emptyText: {
     color: AppColors.textMuted,
     fontFamily: Fonts.serif,
     fontSize: 17,
   },
-  errorText: {
-    color: '#b42318',
-    fontFamily: Fonts.sans,
-    fontSize: 15,
+  header: {
+    minHeight: 52,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AppColors.surface,
+  },
+  headerAction: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerTitle: {
+    color: AppColors.text,
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+  },
+  keyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+    backgroundColor: AppColors.surface,
+  },
+  keyButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  keyText: {
+    minWidth: 70,
+    textAlign: 'center',
+    color: AppColors.primaryStrong,
+    fontFamily: Fonts.mono,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resetButton: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  resetText: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+  },
+  songContent: {
+    flex: 1,
+    paddingHorizontal: 14,
   },
 });

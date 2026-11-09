@@ -64,9 +64,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 22,
-    paddingBottom: 36,
-    paddingTop: 8,
+    gap: 16,
+    paddingBottom: 32,
+    paddingTop: 10,
   },
   section: {
     gap: 10,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: AppColors.primarySoft,
     borderRadius: 12,
-    padding: 14,
+    padding: 10,
   },
   invalid: {
     padding: 16,

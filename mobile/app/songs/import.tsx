@@ -11,6 +11,8 @@ import {
   parseOcrTextToStructure,
   parseOcrTokensToStructure,
 } from '@/music/ocrParser';
+import { combineStructures } from '@/music/combine';
+import { fillChordsFromPattern } from '@/music/pattern';
 import { isDeviceOcrAvailable, recognizeImage } from '@/services/ocr';
 import { normalizeKey } from '@/music/chordParser';
 import { apiErrorMessage } from '@/services/api';
@@ -45,19 +47,32 @@ export default function ImportSongScreen() {
   const [originalKey, setOriginalKey] = useState('');
   const [ocrText, setOcrText] = useState(SAMPLE_OCR_TEXT);
   const [reviewContent, setReviewContent] = useState('');
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  // Photos of the same chord sheet, in reading order (a long sheet may need several).
+  const [selectedImageUris, setSelectedImageUris] = useState<string[]>([]);
+  const [patternNotice, setPatternNotice] = useState<string | null>(null);
   const [processingText, setProcessingText] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const canProcessText = useMemo(() => ocrText.trim().length > 0, [ocrText]);
-  const canProcessImage = selectedImageUri !== null;
+  const canProcessImage = selectedImageUris.length > 0;
   const canSave = useMemo(
     () => title.trim().length > 0 && originalKey.trim().length > 0 && reviewContent.trim().length > 0,
     [title, originalKey, reviewContent]
   );
 
-  const applyParsedStructure = (structureJson: ReturnType<typeof parseOcrTextToStructure>) => {
+  const applyParsedStructure = (parsed: ReturnType<typeof parseOcrTextToStructure>) => {
+    // Stanzas with only lyrics get the chords of the first chorded stanza,
+    // syllable by syllable (same melody in every stanza).
+    const structureJson = fillChordsFromPattern(parsed);
+    const filledCount = structureJson.sections.filter(
+      (section, index) => section !== parsed.sections[index],
+    ).length;
+    setPatternNotice(
+      filledCount > 0
+        ? `Acordes completados em ${filledCount} ${filledCount === 1 ? 'estrofe' : 'estrofes'} seguindo o padrao da estrofe cifrada. Confira antes de salvar.`
+        : null,
+    );
     setReviewContent(structureToBracketContent(structureJson));
 
     if (!originalKey.trim()) {
@@ -93,6 +108,9 @@ export default function ImportSongScreen() {
           ? await ImagePicker.launchImageLibraryAsync({
               mediaTypes: imageMediaType,
               quality: 1,
+              allowsMultipleSelection: true,
+              orderedSelection: true,
+              selectionLimit: 8,
             })
           : await ImagePicker.launchCameraAsync({
               mediaTypes: imageMediaType,
@@ -103,8 +121,10 @@ export default function ImportSongScreen() {
         return;
       }
 
-      const selectedAsset = result.assets[0];
-      setSelectedImageUri(selectedAsset.uri);
+      // Added after the photos already chosen, in the order they were picked.
+      setSelectedImageUris((previous) =>
+        [...previous, ...result.assets.map((asset) => asset.uri)].slice(0, 8),
+      );
     } catch (error) {
       console.error(`Error selecting image from ${source}:`, error);
       showMessage('Erro', 'Nao foi possivel selecionar a imagem.');
@@ -130,58 +150,71 @@ export default function ImportSongScreen() {
   };
 
   const handleProcessOcrImage = async () => {
-    if (!selectedImageUri) {
+    if (selectedImageUris.length === 0) {
       showMessage('Imagem ausente', 'Selecione uma imagem antes de processar.');
       return;
     }
 
     setProcessingImage(true);
     try {
-      // 1. Text recognition on the phone (ML Kit): no upload, works offline.
-      let ocrResult: Awaited<ReturnType<typeof recognizeImage>>;
-      try {
-        ocrResult = await recognizeImage(selectedImageUri);
-      } catch (error) {
-        console.error('OCR recognition failed:', error);
-        showMessage(
-          'Erro ao ler a foto',
-          `O reconhecimento de texto falhou. Tente outra foto ou cole o texto abaixo.\n\nDetalhe: ${describeError(error)}`,
-        );
-        return;
-      }
+      const parts: ReturnType<typeof parseOcrTextToStructure>[] = [];
+      const startsWithoutTitle: boolean[] = [];
+      const texts: string[] = [];
 
-      if (!ocrResult.fullText.trim()) {
-        showMessage('Nenhum texto encontrado', 'Tente uma foto mais nitida, de frente e bem iluminada.');
-        return;
-      }
-      setOcrText(ocrResult.fullText);
+      for (const [position, uri] of selectedImageUris.entries()) {
+        const photoLabel = selectedImageUris.length > 1 ? ` ${position + 1}` : '';
 
-      // 2. Chords and lyrics: by word positions, then by plain text; if both
-      // fail, the text still goes to the review box to be fixed by hand.
-      let structureJson: ReturnType<typeof parseOcrTextToStructure> | null = null;
-      let parseError: unknown = null;
-      for (const parse of [
-        () => parseOcrTokensToStructure(ocrResult.tokens),
-        () => parseOcrTextToStructure(ocrResult.fullText),
-      ]) {
+        // 1. Text recognition on the phone (ML Kit): no upload, works offline.
+        let ocrResult: Awaited<ReturnType<typeof recognizeImage>>;
         try {
-          structureJson = parse();
-          break;
+          ocrResult = await recognizeImage(uri);
         } catch (error) {
-          parseError = error;
+          console.error('OCR recognition failed:', error);
+          showMessage(
+            `Erro ao ler a foto${photoLabel}`,
+            `O reconhecimento de texto falhou. Tente outra foto ou cole o texto abaixo.\n\nDetalhe: ${describeError(error)}`,
+          );
+          return;
+        }
+        if (!ocrResult.fullText.trim()) {
+          continue;
+        }
+        texts.push(ocrResult.fullText);
+
+        // 2. Chords and lyrics: by word positions, then by plain text, then
+        // as lyrics only, so nothing that was read gets lost.
+        const attempts = [
+          () => parseOcrTokensToStructure(ocrResult.tokens),
+          () => parseOcrTextToStructure(ocrResult.fullText),
+          () => parseBracketContentToStructure(ocrResult.fullText),
+        ];
+        for (const parse of attempts) {
+          try {
+            const part = parse();
+            parts.push(part);
+            // No title or stanza number at the top: continues the previous photo.
+            startsWithoutTitle.push(part.sections[0]?.type === 'verse');
+            break;
+          } catch (error) {
+            console.warn('OCR parse attempt failed:', error);
+          }
         }
       }
 
-      if (structureJson) {
-        applyParsedStructure(structureJson);
-      } else {
-        console.error('OCR parsing failed:', parseError);
-        setReviewContent(ocrResult.fullText);
-        showMessage(
-          'Texto lido, cifra nao organizada',
-          `O texto da foto foi colocado na revisao para voce ajustar.\n\nDetalhe: ${describeError(parseError)}`,
-        );
+      if (texts.length === 0) {
+        showMessage('Nenhum texto encontrado', 'Tente fotos mais nitidas, de frente e bem iluminadas.');
+        return;
       }
+      setOcrText(texts.join('\n\n'));
+
+      if (parts.length === 0) {
+        setPatternNotice(null);
+        setReviewContent(texts.join('\n\n'));
+        showMessage('Texto lido, cifra nao organizada', 'O texto das fotos foi colocado na revisao para voce ajustar.');
+        return;
+      }
+
+      applyParsedStructure(combineStructures(parts, startsWithoutTitle));
     } finally {
       setProcessingImage(false);
     }
@@ -268,12 +301,29 @@ export default function ImportSongScreen() {
             </Pressable>
           </View>
 
-          {!isDeviceOcrAvailable ? null : selectedImageUri ? (
-            <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+          {!isDeviceOcrAvailable ? null : selectedImageUris.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
+              {selectedImageUris.map((uri, index) => (
+                <View key={`${uri}-${index}`} style={styles.thumb}>
+                  <Image source={{ uri }} style={styles.thumbImage} />
+                  <View style={styles.thumbBadge}>
+                    <Text style={styles.thumbBadgeText}>{index + 1}</Text>
+                  </View>
+                  <Pressable
+                    style={styles.thumbRemove}
+                    hitSlop={6}
+                    onPress={() => setSelectedImageUris((previous) => previous.filter((_, i) => i !== index))}>
+                    <MaterialIcons name="close" size={16} color={AppColors.surface} />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
           ) : (
             <View style={styles.emptyPreview}>
               <MaterialIcons name="image" size={28} color={AppColors.textMuted} />
-              <Text style={styles.emptyPreviewText}>Selecione uma imagem para OCR</Text>
+              <Text style={styles.emptyPreviewText}>
+                Selecione uma ou mais fotos da cifra, na ordem
+              </Text>
             </View>
           )}
 
@@ -287,7 +337,11 @@ export default function ImportSongScreen() {
             disabled={!canProcessImage || processingImage}>
             <MaterialIcons name="document-scanner" size={20} color={AppColors.surface} />
             <Text style={styles.processButtonText}>
-              {processingImage ? 'Lendo imagem...' : 'Processar imagem'}
+              {processingImage
+                ? 'Lendo...'
+                : selectedImageUris.length > 1
+                  ? `Processar ${selectedImageUris.length} fotos`
+                  : 'Processar imagem'}
             </Text>
           </Pressable>
         </View>
@@ -348,6 +402,13 @@ export default function ImportSongScreen() {
           <Text style={styles.label}>REVISAO FINAL</Text>
           <Text style={styles.reviewHelp}>Edite antes de salvar</Text>
         </View>
+
+        {patternNotice ? (
+          <View style={styles.notice}>
+            <MaterialIcons name="auto-fix-high" size={18} color={AppColors.primaryStrong} />
+            <Text style={styles.noticeText}>{patternNotice}</Text>
+          </View>
+        ) : null}
 
         <TextInput
           style={styles.reviewInput}
@@ -452,12 +513,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  previewImage: {
-    width: '100%',
-    height: 230,
-    borderRadius: 14,
+  thumbRow: {
+    gap: 10,
+  },
+  thumb: {
+    width: 120,
+    height: 160,
+    borderRadius: 12,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: AppColors.border,
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbBadge: {
+    position: 'absolute',
+    left: 6,
+    top: 6,
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbBadgeText: {
+    color: AppColors.surface,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  thumbRemove: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notice: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  noticeText: {
+    flex: 1,
+    color: AppColors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   emptyPreview: {
     minHeight: 130,
