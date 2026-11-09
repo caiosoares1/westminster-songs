@@ -5,6 +5,7 @@ import {
   normalizeChordToken,
   parseChord,
 } from '@/music/chordParser';
+import { syllableStarts } from '@/music/pattern';
 import type { SongItem, SongLine, SongSection, SongStructure } from '@/services/songs';
 import {
   isKnownSectionHeading,
@@ -18,6 +19,8 @@ export interface OcrToken {
   y: number;
   width: number;
   height: number;
+  /** Line the OCR engine put this word in (used to measure the page tilt). */
+  line?: number;
 }
 
 interface PositionedChord {
@@ -32,14 +35,29 @@ const OCR_C_MISREADS = new Set(['Cc', 'cC', 'CC', '€', '{', '(', '©', '¢']);
  * Fixes known misreads of a chord, keeping column positions, but only when
  * the result is a chord line (so lyrics are never touched).
  */
+// One chord inside a run of chords read without spaces ("CD4", "DG", "A4A").
+const CHORD_PIECE_REGEX = /[A-G][#b]?(?:maj7?|min|dim|aug|sus\d{0,2}|add\d{1,2}|m|\d{1,2}|[+°-])*(?:\/[A-G][#b]?)?/g;
+
+/** "CD4" -> ["C", "D4"]; null when the token is not a run of chords. */
+export function splitChordRun(token: string): string[] | null {
+  const text = `${token.charAt(0).toUpperCase()}${token.slice(1)}`;
+  const pieces = text.match(CHORD_PIECE_REGEX);
+  if (!pieces || pieces.length < 2 || pieces.join('') !== text) {
+    return null;
+  }
+  return pieces.every((piece) => isChordToken(piece)) ? pieces : null;
+}
+
 export function repairOcrChordLine(line: string): string {
   if (!/\S/.test(line)) {
     return line;
   }
 
-  const repaired = line.replace(/\S+/g, (token) =>
-    OCR_C_MISREADS.has(token) ? 'C'.padEnd(token.length, ' ') : token,
-  );
+  const repaired = line.replace(/\S+/g, (token) => {
+    if (OCR_C_MISREADS.has(token)) return 'C'.padEnd(token.length, ' ');
+    if (isChordToken(token)) return token;
+    return splitChordRun(token)?.join(' ') ?? token;
+  });
   return repaired !== line && isChordLine(repaired) ? repaired : line;
 }
 
@@ -142,6 +160,25 @@ function buildChordOnlyLine(chordLine: string): SongLine {
   return { items };
 }
 
+/**
+ * Where a chord read over the lyrics belongs: chords are printed over (often
+ * centered on) a syllable, so one that lands inside a syllable moves to its
+ * start, and one over a space moves to the next word.
+ */
+function snapToSyllable(lyric: string, syllables: number[], index: number): number {
+  if (index >= lyric.trimEnd().length) {
+    return Math.min(index, lyric.length);
+  }
+  let position = index;
+  while (position < lyric.length && /\s/.test(lyric[position])) position += 1;
+  if (position !== index) {
+    return position;
+  }
+  const start = [...syllables].reverse().find((syllable) => syllable <= index);
+  // Stay in the same word.
+  return start !== undefined && !/\s/.test(lyric.slice(start, index)) ? start : index;
+}
+
 function buildLineFromChordAndLyric(chordLine: string, lyricLine: string): SongLine {
   const chords = extractPositionedChords(chordLine);
   if (chords.length === 0) {
@@ -154,9 +191,10 @@ function buildLineFromChordAndLyric(chordLine: string, lyricLine: string): SongL
 
   const items: SongItem[] = [];
   let cursor = 0;
+  const syllables = syllableStarts(lyricLine);
 
   for (const positionedChord of chords) {
-    const start = Math.max(cursor, Math.min(positionedChord.index, lyricLine.length));
+    const start = Math.max(cursor, snapToSyllable(lyricLine, syllables, positionedChord.index));
     const lyricChunk = lyricLine.slice(cursor, start);
 
     if (lyricChunk) {
@@ -355,9 +393,60 @@ export function groupTokensByLine(tokens: OcrToken[], tolerance?: number): OcrTo
   return groups.map((group) => group.sort((a, b) => a.x - b.x));
 }
 
+/**
+ * Slope of the text lines (dy/dx) in a tilted photo, measured on the lines
+ * the OCR engine recognized with several words. 0 when unknown.
+ */
+export function estimateTilt(tokens: OcrToken[]): number {
+  const byLine = new Map<number, OcrToken[]>();
+  for (const token of tokens) {
+    if (token.line === undefined) continue;
+    byLine.set(token.line, [...(byLine.get(token.line) ?? []), token]);
+  }
+
+  const slopes: number[] = [];
+  for (const lineTokens of byLine.values()) {
+    if (lineTokens.length < 2) continue;
+    const points = lineTokens.map((token) => ({
+      x: token.x + token.width / 2,
+      y: token.y + token.height / 2,
+    }));
+    const meanX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const meanY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const sxx = points.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0);
+    // Words close together say little about the angle.
+    if (sxx === 0 || Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x)) < 100) {
+      continue;
+    }
+    const sxy = points.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0);
+    slopes.push(sxy / sxx);
+  }
+
+  const slope = median(slopes);
+  // Ignore implausible angles (more than ~15 degrees).
+  return Math.abs(slope) <= 0.27 ? slope : 0;
+}
+
+/** Straightens a tilted photo: rotates the word positions so lines are horizontal. */
+function deskewTokens(tokens: OcrToken[]): OcrToken[] {
+  const slope = estimateTilt(tokens);
+  if (slope === 0) {
+    return tokens;
+  }
+  const cos = 1 / Math.sqrt(1 + slope * slope);
+  const sin = slope * cos;
+  return tokens.map((token) => {
+    const centerX = token.x + token.width / 2;
+    const centerY = token.y + token.height / 2;
+    const x = centerX * cos + centerY * sin;
+    const y = centerY * cos - centerX * sin;
+    return { ...token, x: x - token.width / 2, y: y - token.height / 2 };
+  });
+}
+
 /** Rebuilds the page as text lines, keeping horizontal positions as spaces. */
 export function tokensToTextLines(tokens: OcrToken[]): string[] {
-  const usable = tokens.filter((token) => token.text.trim() && token.width > 0);
+  const usable = deskewTokens(tokens.filter((token) => token.text.trim() && token.width > 0));
   if (usable.length === 0) {
     return [];
   }
