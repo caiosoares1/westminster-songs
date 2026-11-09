@@ -29,6 +29,14 @@ C                G
 Na luta e na tristeza.
 `;
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error as Error & { code?: string }).code;
+    return code ? `${error.message} (${code})` : error.message;
+  }
+  return String(error);
+}
+
 export default function ImportSongScreen() {
   const router = useRouter();
 
@@ -127,25 +135,53 @@ export default function ImportSongScreen() {
       return;
     }
 
+    setProcessingImage(true);
     try {
-      setProcessingImage(true);
-      // Text recognition runs on the phone (ML Kit): no upload, works offline.
-      const ocrResult = await recognizeImage(selectedImageUri);
+      // 1. Text recognition on the phone (ML Kit): no upload, works offline.
+      let ocrResult: Awaited<ReturnType<typeof recognizeImage>>;
+      try {
+        ocrResult = await recognizeImage(selectedImageUri);
+      } catch (error) {
+        console.error('OCR recognition failed:', error);
+        showMessage(
+          'Erro ao ler a foto',
+          `O reconhecimento de texto falhou. Tente outra foto ou cole o texto abaixo.\n\nDetalhe: ${describeError(error)}`,
+        );
+        return;
+      }
+
       if (!ocrResult.fullText.trim()) {
         showMessage('Nenhum texto encontrado', 'Tente uma foto mais nitida, de frente e bem iluminada.');
         return;
       }
       setOcrText(ocrResult.fullText);
 
-      const structureJson =
-        ocrResult.tokens.length > 0
-          ? parseOcrTokensToStructure(ocrResult.tokens)
-          : parseOcrTextToStructure(ocrResult.fullText);
+      // 2. Chords and lyrics: by word positions, then by plain text; if both
+      // fail, the text still goes to the review box to be fixed by hand.
+      let structureJson: ReturnType<typeof parseOcrTextToStructure> | null = null;
+      let parseError: unknown = null;
+      for (const parse of [
+        () => parseOcrTokensToStructure(ocrResult.tokens),
+        () => parseOcrTextToStructure(ocrResult.fullText),
+      ]) {
+        try {
+          structureJson = parse();
+          break;
+        } catch (error) {
+          parseError = error;
+        }
+      }
 
-      applyParsedStructure(structureJson);
-    } catch (error) {
-      console.error('Error processing OCR image:', error);
-      showMessage('Erro OCR', 'Nao foi possivel ler a imagem. Tente outra foto ou cole o texto abaixo.');
+      if (structureJson) {
+        applyParsedStructure(structureJson);
+      } else {
+        console.error('OCR parsing failed:', parseError);
+        setReviewContent(ocrResult.fullText);
+        showMessage(
+          'Texto lido, cifra nao organizada',
+          `O texto da foto foi colocado na revisao para voce ajustar.\n\nDetalhe: ${describeError(parseError)}`,
+        );
+      }
     } finally {
       setProcessingImage(false);
     }
