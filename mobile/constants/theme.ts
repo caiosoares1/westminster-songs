@@ -35,22 +35,22 @@ export const LightColors: AppPalette = {
   danger: '#B3261E',
 };
 
-// Dark: same teal identity, lighter so it reads on a dark background;
-// buttons get dark text for contrast.
+// Dark: neutral dark grays with the same teal, muted (no glow); buttons get
+// dark text for contrast.
 export const DarkColors: AppPalette = {
-  background: '#0E1517',
-  surface: '#172124',
-  surfaceMuted: '#223035',
-  primary: '#4DB6AF',
-  primaryStrong: '#7DD3CC',
-  primarySoft: '#1D3A39',
-  onPrimary: '#06201F',
-  text: '#E6EDF0',
-  textMuted: '#93A7B3',
-  border: '#2A3B40',
-  tabInactive: '#6B8290',
-  shadow: 'rgba(0, 0, 0, 0.45)',
-  danger: '#F28B82',
+  background: '#18191B',
+  surface: '#222326',
+  surfaceMuted: '#2C2E31',
+  primary: '#6FA39F',
+  primaryStrong: '#9CC4C0',
+  primarySoft: '#2A3634',
+  onPrimary: '#111A19',
+  text: '#E4E5E7',
+  textMuted: '#A0A4A9',
+  border: '#36383C',
+  tabInactive: '#7C8086',
+  shadow: 'rgba(0, 0, 0, 0.4)',
+  danger: '#E08A84',
 };
 
 export const Fonts = Platform.select({
