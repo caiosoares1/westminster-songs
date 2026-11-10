@@ -29,3 +29,18 @@ export async function recognizeImage(imageUri: string): Promise<OcrResult> {
   const result = await textRecognition.recognizeText(imageUri);
   return { fullText: result.text, tokens: recognizedTextToTokens(result) };
 }
+
+/**
+ * Word positions as plain text, to send when a photo is read wrong and the
+ * case needs to be reproduced: one word per line, "line x y width height text".
+ */
+export function describeTokens(tokens: OcrToken[]): string {
+  return tokens
+    .map((token) =>
+      [token.line ?? -1, token.x, token.y, token.width, token.height]
+        .map((value) => Math.round(value))
+        .join(' ')
+        .concat(` ${token.text}`),
+    )
+    .join('\n');
+}

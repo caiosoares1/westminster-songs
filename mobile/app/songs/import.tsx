@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,7 +14,7 @@ import {
 } from '@/music/ocrParser';
 import { combineStructures } from '@/music/combine';
 import { fillChordsFromPattern } from '@/music/pattern';
-import { isDeviceOcrAvailable, recognizeImage } from '@/services/ocr';
+import { describeTokens, isDeviceOcrAvailable, recognizeImage } from '@/services/ocr';
 import { normalizeKey } from '@/music/chordParser';
 import { apiErrorMessage } from '@/services/api';
 import { showMessage } from '@/utils/dialog';
@@ -53,6 +53,8 @@ export default function ImportSongScreen() {
   // Photos of the same chord sheet, in reading order (a long sheet may need several).
   const [selectedImageUris, setSelectedImageUris] = useState<string[]>([]);
   const [patternNotice, setPatternNotice] = useState<string | null>(null);
+  /** Positions read from the photos, shared when a reading comes out wrong. */
+  const [readingData, setReadingData] = useState<string | null>(null);
   const [processingText, setProcessingText] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -163,6 +165,7 @@ export default function ImportSongScreen() {
       const parts: ReturnType<typeof parseOcrTextToStructure>[] = [];
       const startsWithoutTitle: boolean[] = [];
       const texts: string[] = [];
+      const readings: string[] = [];
 
       for (const [position, uri] of selectedImageUris.entries()) {
         const photoLabel = selectedImageUris.length > 1 ? ` ${position + 1}` : '';
@@ -183,6 +186,7 @@ export default function ImportSongScreen() {
           continue;
         }
         texts.push(ocrResult.fullText);
+        readings.push(`# foto ${position + 1}\n${describeTokens(ocrResult.tokens)}`);
 
         // 2. Chords and lyrics: by word positions, then by plain text, then
         // as lyrics only, so nothing that was read gets lost.
@@ -209,6 +213,7 @@ export default function ImportSongScreen() {
         return;
       }
       setOcrText(texts.join('\n\n'));
+      setReadingData(`westminster-ocr v1\n${readings.join('\n')}`);
 
       if (parts.length === 0) {
         setPatternNotice(null);
@@ -422,6 +427,16 @@ export default function ImportSongScreen() {
           placeholder="[Verse]\n[C] Castelo forte e o nosso Deus..."
           placeholderTextColor={colors.textMuted}
         />
+
+        {readingData ? (
+          <Pressable
+            style={styles.reportLink}
+            hitSlop={8}
+            onPress={() => void Share.share({ message: readingData })}>
+            <MaterialIcons name="bug-report" size={16} color={colors.textMuted} />
+            <Text style={styles.reportText}>Leitura saiu errada? Enviar dados da leitura</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -566,6 +581,18 @@ const createStyles = (colors: AppPalette) =>
     padding: 12,
     borderRadius: 12,
     backgroundColor: colors.surfaceMuted,
+  },
+  reportLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  reportText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   noticeText: {
     flex: 1,
