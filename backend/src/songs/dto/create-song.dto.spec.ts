@@ -35,6 +35,28 @@ describe('CreateSongDto validation', () => {
     ).resolves.toBeInstanceOf(CreateSongDto);
   });
 
+  it('accepts the song type and rejects unknown ones', async () => {
+    await expect(
+      validate({
+        title: 'Salmo 16b',
+        originalKey: 'C',
+        category: 'psalm',
+        structureJson,
+      }),
+    ).resolves.toBeInstanceOf(CreateSongDto);
+    await expect(
+      validate({ category: null }, UpdateSongDto),
+    ).resolves.toBeInstanceOf(UpdateSongDto);
+    await expect(
+      validate({
+        title: 'X',
+        originalKey: 'C',
+        category: 'rock',
+        structureJson,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it.each([
     ['structure without sections', { foo: 1 }],
     [

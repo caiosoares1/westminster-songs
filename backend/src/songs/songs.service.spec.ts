@@ -56,7 +56,12 @@ describe('SongsService', () => {
     });
 
     expect(prisma.song.create).toHaveBeenCalledWith({
-      data: { title: 'Castelo Forte', originalKey: 'C', author: undefined },
+      data: {
+        title: 'Castelo Forte',
+        originalKey: 'C',
+        author: undefined,
+        category: null,
+      },
     });
     expect(prisma.songVersion.create).toHaveBeenCalledWith({
       data: { songId: 'song-1', structureJson },

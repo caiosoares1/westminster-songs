@@ -17,6 +17,8 @@ model Song {
   title        String
   originalKey  String
   author       String?
+  /// "hymn" (hinário), "psalm" (salmo) or "canticle" (cântico); null = not set.
+  category     String?
   createdAt    DateTime      @default(now())
 
   versions     SongVersion[]

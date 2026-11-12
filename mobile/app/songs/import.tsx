@@ -5,6 +5,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategoryPicker } from '@/components/CategoryPicker';
+import { guessCategory, type SongCategory } from '@/constants/categories';
 import { Fonts, type AppPalette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/providers/theme';
 import {
@@ -50,6 +52,7 @@ export default function ImportSongScreen() {
 
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
+  const [category, setCategory] = useState<SongCategory | null>(null);
   const [originalKey, setOriginalKey] = useState('');
   const [ocrText, setOcrText] = useState(SAMPLE_OCR_TEXT);
   const [reviewContent, setReviewContent] = useState('');
@@ -109,6 +112,9 @@ export default function ImportSongScreen() {
 
     if (header && !title.trim()) {
       setTitle(`${header.number} ${header.title}`);
+    }
+    if (!category) {
+      setCategory(guessCategory(header ? header.title : title, header?.number));
     }
     if (!originalKey.trim()) {
       const guessedKey = (header?.key && normalizeKey(header.key)) || extractLikelyOriginalKey(structureJson);
@@ -286,6 +292,7 @@ export default function ImportSongScreen() {
       const createdSong = await createSong({
         title: title.trim(),
         author: author.trim() || undefined,
+        category: category ?? guessCategory(title),
         originalKey: key,
         structureJson,
       });
@@ -403,6 +410,9 @@ export default function ImportSongScreen() {
           placeholder="ex. Martinho Lutero"
           placeholderTextColor={colors.textMuted}
         />
+
+        <Text style={styles.label}>TIPO</Text>
+        <CategoryPicker value={category} onChange={setCategory} />
 
         <Text style={styles.label}>TONALIDADE ORIGINAL</Text>
         <TextInput

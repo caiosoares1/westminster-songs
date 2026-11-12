@@ -21,6 +21,7 @@ export class SongsService {
           title: dto.title,
           originalKey: dto.originalKey,
           author: dto.author,
+          category: dto.category ?? null,
         },
       });
 

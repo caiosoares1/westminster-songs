@@ -12,6 +12,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategoryPicker } from '@/components/CategoryPicker';
+import { guessCategory, type SongCategory } from '@/constants/categories';
 import { Fonts, type AppPalette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/providers/theme';
 import { normalizeKey } from '@/music/chordParser';
@@ -70,6 +72,7 @@ export default function SongFormScreen() {
   const [title, setTitle] = useState('');
   const [originalKey, setOriginalKey] = useState('');
   const [author, setAuthor] = useState('');
+  const [category, setCategory] = useState<SongCategory | null>(null);
   const [content, setContent] = useState(isEditing ? '' : INITIAL_CONTENT);
   /** Content before the last "Acordes automáticos", to undo it. */
   const [contentBeforeAuto, setContentBeforeAuto] = useState<string | null>(null);
@@ -93,6 +96,7 @@ export default function SongFormScreen() {
         const latest = song.versions[0]?.structureJson;
         setTitle(song.title);
         setAuthor(song.author ?? '');
+        setCategory(song.category ?? null);
         setOriginalKey(song.originalKey);
         setVersions(song.versions);
         if (isSongStructure(latest)) {
@@ -199,6 +203,7 @@ export default function SongFormScreen() {
           title: title.trim(),
           originalKey: key,
           author: author.trim(),
+          category,
           ...(structureChanged ? { structureJson } : {}),
         });
       } else {
@@ -206,6 +211,7 @@ export default function SongFormScreen() {
           title: title.trim(),
           originalKey: key,
           author: author.trim() || undefined,
+          category: category ?? guessCategory(title),
           structureJson,
         });
       }
@@ -302,6 +308,9 @@ export default function SongFormScreen() {
           placeholder="ex. Martinho Lutero"
           placeholderTextColor={colors.textMuted}
         />
+
+        <Text style={styles.label}>TIPO</Text>
+        <CategoryPicker value={category} onChange={setCategory} />
 
         <Text style={styles.label}>TONALIDADE ORIGINAL</Text>
         <TextInput

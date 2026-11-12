@@ -14,35 +14,21 @@ import { Link, useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CATEGORY_FILTER_LABEL, CATEGORY_LABEL, SONG_CATEGORIES, type SongCategory } from '@/constants/categories';
 import { Fonts, type AppPalette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/providers/theme';
 import { getSetlists, type SetlistListItem } from '@/services/setlists';
 import { getSongs, type Song } from '@/services/songs';
 
-const CATEGORIES = ['Todas', 'Hinos', 'Contemporaneas', 'Corais'] as const;
+type Category = 'all' | SongCategory;
 
-type Category = (typeof CATEGORIES)[number];
+const CATEGORIES: Category[] = ['all', ...SONG_CATEGORIES];
+
+const categoryLabel = (category: Category) =>
+  category === 'all' ? 'Todas' : CATEGORY_FILTER_LABEL[category];
 
 function filterByCategory(song: Song, category: Category): boolean {
-  if (category === 'Todas') {
-    return true;
-  }
-
-  const haystack = `${song.title} ${song.author ?? ''}`.toLowerCase();
-
-  if (category === 'Hinos') {
-    return haystack.includes('hino') || haystack.includes('tradicional');
-  }
-
-  if (category === 'Contemporaneas') {
-    return !haystack.includes('hino');
-  }
-
-  if (category === 'Corais') {
-    return haystack.includes('coro') || haystack.includes('coral');
-  }
-
-  return true;
+  return category === 'all' || song.category === category;
 }
 
 export default function SongsScreen() {
@@ -54,7 +40,7 @@ export default function SongsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [setlists, setSetlists] = useState<SetlistListItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<Category>('Todas');
+  const [activeCategory, setActiveCategory] = useState<Category>('all');
 
   const loadSongs = useCallback(async () => {
     try {
@@ -146,7 +132,9 @@ export default function SongsScreen() {
                       key={category}
                       onPress={() => setActiveCategory(category)}
                       style={[styles.chip, selected && styles.chipSelected]}>
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{category}</Text>
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {categoryLabel(category)}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -177,7 +165,9 @@ export default function SongsScreen() {
                     {item.title}
                   </Text>
                   <Text style={styles.subtitle} numberOfLines={1}>
-                    {item.author || 'Autor desconhecido'} - Tom: {item.originalKey}
+                    {[item.category ? CATEGORY_LABEL[item.category] : null, item.author].filter(Boolean).join(' · ') ||
+                      'Autor desconhecido'}{' '}
+                    - Tom: {item.originalKey}
                   </Text>
                 </View>
 
