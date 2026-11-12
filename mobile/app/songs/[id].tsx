@@ -5,6 +5,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import SongViewer from '@/components/SongViewer';
+import { CATEGORY_LABEL } from '@/constants/categories';
 import { Fonts, type AppPalette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/providers/theme';
 import { useTranspose } from '@/hooks/use-transpose';
@@ -128,9 +129,11 @@ export default function SongDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {song.title}
           </Text>
-          {song.author ? (
+          {song.author || song.category ? (
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {song.author}
+              {[song.category ? CATEGORY_LABEL[song.category] : null, song.author]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           ) : null}
         </View>

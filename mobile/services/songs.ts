@@ -1,3 +1,4 @@
+import type { SongCategory } from '@/constants/categories';
 import api from './api';
 
 export interface SongItem {
@@ -29,6 +30,7 @@ export interface Song {
   title: string;
   originalKey: string;
   author?: string | null;
+  category?: SongCategory | null;
   createdAt: string;
   versions: SongVersion[];
 }
@@ -37,6 +39,7 @@ export interface CreateSongPayload {
   title: string;
   originalKey: string;
   author?: string;
+  category?: SongCategory | null;
   structureJson: SongStructure;
 }
 
@@ -44,6 +47,7 @@ export interface UpdateSongPayload {
   title?: string;
   originalKey?: string;
   author?: string;
+  category?: SongCategory | null;
   structureJson?: SongStructure;
 }
 
