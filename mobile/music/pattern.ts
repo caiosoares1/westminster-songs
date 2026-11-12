@@ -83,12 +83,51 @@ function syllableIndexAt(starts: number[], index: number): number {
   return Math.max(0, count - 1);
 }
 
+/** Syllable starts that can join the previous word when sung (vowel meets vowel). */
+function elidableStarts(text: string): number[] {
+  return syllableStarts(text).filter((start) => {
+    if (start === 0 || !/\s/.test(text[start - 1])) return false;
+    const opensWithVowel = isVowel(text[start]) || (/[hH]/.test(text[start]) && isVowel(text[start + 1] ?? ''));
+    const before = text.slice(0, start).trimEnd();
+    return opensWithVowel && before.length > 0 && isVowel(before[before.length - 1]);
+  });
+}
+
+/**
+ * Syllable starts when sung: a word ending in a vowel can join the next word
+ * starting with a vowel ("mi-nha al-ma" is sung "mi-nhal-ma"). At most `limit`
+ * joins, the short words first ("o", "a", "e"), then left to right.
+ */
+export function sungSyllableStarts(text: string, limit = Infinity): number[] {
+  const wordLength = (start: number) => (text.slice(start).match(/^\S+/)?.[0] ?? '').replace(/[^\p{L}]/gu, '').length;
+  const joined = elidableStarts(text)
+    .sort((a, b) => Number(wordLength(a) > 1) - Number(wordLength(b) > 1) || a - b)
+    .slice(0, limit);
+  return syllableStarts(text).filter((start) => !joined.includes(start));
+}
+
+/**
+ * Syllables of the model and target lines. When the counts differ, the line
+ * with more syllables joins vowels between words (as sung) to match.
+ */
+function matchSyllables(sourceText: string, targetText: string): { source: number[]; target: number[] } {
+  const source = syllableStarts(sourceText);
+  const target = syllableStarts(targetText);
+  if (target.length > source.length) {
+    const sung = sungSyllableStarts(targetText, target.length - source.length);
+    if (sung.length === source.length) return { source, target: sung };
+  } else if (source.length > target.length) {
+    const sung = sungSyllableStarts(sourceText, source.length - target.length);
+    if (sung.length === target.length) return { source: sung, target };
+  }
+  return { source, target };
+}
+
 /** Puts the chords of `model` on the same syllables of `target`. */
 export function applyChordPattern(model: SongLine, target: SongLine): SongLine {
   const source = lineToLyricAndChords(model);
   const { lyric } = lineToLyricAndChords(target);
-  const sourceStarts = syllableStarts(source.lyric);
-  const targetStarts = syllableStarts(lyric);
+  const { source: sourceStarts, target: targetStarts } = matchSyllables(source.lyric, lyric);
   if (source.chords.length === 0 || targetStarts.length === 0) {
     return target;
   }

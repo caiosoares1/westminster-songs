@@ -9,10 +9,13 @@ import { Fonts, type AppPalette } from '@/constants/theme';
 import { useTheme, useThemedStyles } from '@/providers/theme';
 import {
   extractLikelyOriginalKey,
+  findDoubtfulChords,
   parseOcrTextToStructure,
   parseOcrTokensToStructure,
+  tokensToTextLines,
 } from '@/music/ocrParser';
 import { combineStructures } from '@/music/combine';
+import { extractHymnHeader } from '@/music/hymnHeader';
 import { fillChordsFromPattern } from '@/music/pattern';
 import { describeTokens, isDeviceOcrAvailable, recognizeImage } from '@/services/ocr';
 import { normalizeKey } from '@/music/chordParser';
@@ -52,7 +55,8 @@ export default function ImportSongScreen() {
   const [reviewContent, setReviewContent] = useState('');
   // Photos of the same chord sheet, in reading order (a long sheet may need several).
   const [selectedImageUris, setSelectedImageUris] = useState<string[]>([]);
-  const [patternNotice, setPatternNotice] = useState<string | null>(null);
+  /** Notes about the reading shown above the review (filled chords, doubtful chords...). */
+  const [notices, setNotices] = useState<string[]>([]);
   /** Positions read from the photos, shared when a reading comes out wrong. */
   const [readingData, setReadingData] = useState<string | null>(null);
   const [processingText, setProcessingText] = useState(false);
@@ -66,22 +70,48 @@ export default function ImportSongScreen() {
     [title, originalKey, reviewContent]
   );
 
-  const applyParsedStructure = (parsed: ReturnType<typeof parseOcrTextToStructure>) => {
+  const applyParsedStructure = (
+    parsed: ReturnType<typeof parseOcrTextToStructure>,
+    doubtfulChords: string[] = [],
+  ) => {
+    // Hymnal heading ("120 DEPENDÊNCIA. G 3/4"): title, key and time
+    // signature, taken out of the lyrics.
+    const { structure: withoutHeader, header } = extractHymnHeader(parsed);
+
     // Stanzas with only lyrics get the chords of the first chorded stanza,
     // syllable by syllable (same melody in every stanza).
-    const structureJson = fillChordsFromPattern(parsed);
+    const structureJson = fillChordsFromPattern(withoutHeader);
     const filledCount = structureJson.sections.filter(
-      (section, index) => section !== parsed.sections[index],
+      (section, index) => section !== withoutHeader.sections[index],
     ).length;
-    setPatternNotice(
-      filledCount > 0
-        ? `Acordes completados em ${filledCount} ${filledCount === 1 ? 'estrofe' : 'estrofes'} seguindo o padrao da estrofe cifrada. Confira antes de salvar.`
-        : null,
-    );
+
+    const nextNotices: string[] = [];
+    if (header) {
+      nextNotices.push(
+        `Cabecalho do hinario: ${header.number} ${header.title}` +
+          (header.key ? `, tom ${header.key}` : '') +
+          (header.timeSignature ? `, compasso ${header.timeSignature}` : '') +
+          '.',
+      );
+    }
+    if (filledCount > 0) {
+      nextNotices.push(
+        `Acordes completados em ${filledCount} ${filledCount === 1 ? 'estrofe' : 'estrofes'} seguindo o padrao da estrofe cifrada. Confira antes de salvar.`,
+      );
+    }
+    if (doubtfulChords.length > 0) {
+      nextNotices.push(
+        `Confira ${doubtfulChords.length === 1 ? 'este trecho' : 'estes trechos'}, a leitura pode ter errado o acorde: ${doubtfulChords.slice(0, 5).join('; ')}.`,
+      );
+    }
+    setNotices(nextNotices);
     setReviewContent(structureToBracketContent(structureJson));
 
+    if (header && !title.trim()) {
+      setTitle(`${header.number} ${header.title}`);
+    }
     if (!originalKey.trim()) {
-      const guessedKey = extractLikelyOriginalKey(structureJson);
+      const guessedKey = (header?.key && normalizeKey(header.key)) || extractLikelyOriginalKey(structureJson);
       if (guessedKey) {
         setOriginalKey(guessedKey);
       }
@@ -145,7 +175,7 @@ export default function ImportSongScreen() {
     try {
       setProcessingText(true);
       const structureJson = parseOcrTextToStructure(ocrText);
-      applyParsedStructure(structureJson);
+      applyParsedStructure(structureJson, findDoubtfulChords(ocrText.split('\n')));
     } catch (error) {
       console.error('Error processing OCR text:', error);
       showMessage('Erro', 'Nao foi possivel interpretar o texto OCR.');
@@ -166,6 +196,7 @@ export default function ImportSongScreen() {
       const startsWithoutTitle: boolean[] = [];
       const texts: string[] = [];
       const readings: string[] = [];
+      const doubtful: string[] = [];
 
       for (const [position, uri] of selectedImageUris.entries()) {
         const photoLabel = selectedImageUris.length > 1 ? ` ${position + 1}` : '';
@@ -187,6 +218,7 @@ export default function ImportSongScreen() {
         }
         texts.push(ocrResult.fullText);
         readings.push(`# foto ${position + 1}\n${describeTokens(ocrResult.tokens)}`);
+        doubtful.push(...findDoubtfulChords(tokensToTextLines(ocrResult.tokens)));
 
         // 2. Chords and lyrics: by word positions, then by plain text, then
         // as lyrics only, so nothing that was read gets lost.
@@ -216,13 +248,13 @@ export default function ImportSongScreen() {
       setReadingData(`westminster-ocr v1\n${readings.join('\n')}`);
 
       if (parts.length === 0) {
-        setPatternNotice(null);
+        setNotices([]);
         setReviewContent(texts.join('\n\n'));
         showMessage('Texto lido, cifra nao organizada', 'O texto das fotos foi colocado na revisao para voce ajustar.');
         return;
       }
 
-      applyParsedStructure(combineStructures(parts, startsWithoutTitle));
+      applyParsedStructure(combineStructures(parts, startsWithoutTitle), [...new Set(doubtful)]);
     } finally {
       setProcessingImage(false);
     }
@@ -411,12 +443,12 @@ export default function ImportSongScreen() {
           <Text style={styles.reviewHelp}>Edite antes de salvar</Text>
         </View>
 
-        {patternNotice ? (
-          <View style={styles.notice}>
+        {notices.map((notice) => (
+          <View key={notice} style={styles.notice}>
             <MaterialIcons name="auto-fix-high" size={18} color={colors.primaryStrong} />
-            <Text style={styles.noticeText}>{patternNotice}</Text>
+            <Text style={styles.noticeText}>{notice}</Text>
           </View>
-        ) : null}
+        ))}
 
         <TextInput
           style={styles.reviewInput}
