@@ -219,11 +219,23 @@ function parseLinesToStructure(rawLines: string[]): SongStructure {
   let currentSection: SongSection | null = null;
   let pendingBreak = false;
 
+  // Smallest indentation of each stanza's lyrics, and stanzas numbered on the page.
+  const indents = new Map<SongSection, number>();
+  const numbered = new Set<SongSection>();
+  /** Stanzas named by position ("Verso 2"), not by a heading on the page. */
+  const autoNamed = new Set<SongSection>();
+  const noteIndent = (section: SongSection, lyric: string) => {
+    const indent = lyric.length - lyric.trimStart().length;
+    indents.set(section, Math.min(indents.get(section) ?? Infinity, indent));
+  };
+
   const startStanza = (number: string | null) => {
     const verses = sections.filter((section) => section.type.startsWith('verse')).length;
     const type = number ? `verse ${number}` : verses === 0 ? 'verse' : `verse ${verses + 1}`;
     currentSection = { type, lines: [] };
     sections.push(currentSection);
+    if (number) numbered.add(currentSection);
+    else autoNamed.add(currentSection);
     return currentSection;
   };
 
@@ -287,6 +299,7 @@ function parseLinesToStructure(rawLines: string[]): SongStructure {
         !isChordLine(nextLine);
 
       if (hasLyricPair) {
+        noteIndent(section, nextLine);
         section.lines.push(trimLineStart(buildLineFromChordAndLyric(line, nextLine)));
         index += 2;
         continue;
@@ -297,6 +310,7 @@ function parseLinesToStructure(rawLines: string[]): SongStructure {
       continue;
     }
 
+    noteIndent(section, lineText);
     section.lines.push(trimLineStart({ items: [{ type: 'lyric', value: lineText }] }));
     index += 1;
   }
@@ -306,15 +320,63 @@ function parseLinesToStructure(rawLines: string[]): SongStructure {
     throw new Error('Nenhuma linha reconhecida no OCR.');
   }
 
+  // Hymnals print the chorus indented (and in italics, which OCR does not
+  // see): a stanza of two or more lines set clearly to the right of the
+  // others is the chorus.
+  const lyricIndents = filled.flatMap((section) => {
+    const indent = indents.get(section);
+    return indent === undefined ? [] : [indent];
+  });
+  const baseIndent = Math.min(...lyricIndents);
+  const indentedChorus = (section: SongSection) =>
+    lyricIndents.length >= 2 &&
+    section.type.startsWith('verse') &&
+    !numbered.has(section) &&
+    section.lines.filter((line) => line.items.some((item) => item.type === 'lyric' && item.value.trim())).length >= 2 &&
+    (indents.get(section) ?? 0) >= baseIndent + 3;
+  const retyped = filled.map((section) => (indentedChorus(section) ? { ...section, type: 'chorus' } : section));
+
   // A stanza with the same words as the chorus is the chorus repeated.
-  const choruses = filled.filter((section) => section.type.startsWith('chorus')).map(lyricKey);
+  const choruses = retyped.filter((section) => section.type.startsWith('chorus')).map(lyricKey);
+  const withChoruses = retyped.map((section) =>
+    section.type.startsWith('verse') && choruses.includes(lyricKey(section))
+      ? { ...section, type: 'chorus' }
+      : section,
+  );
+
+  // When a stanza became the chorus, renumber the stanzas named by position
+  // (Verso, Verso 2, ...) so no number is skipped.
+  if (!filled.some(indentedChorus)) {
+    return { sections: withChoruses };
+  }
+  let verseNumber = 0;
   return {
-    sections: filled.map((section) =>
-      section.type.startsWith('verse') && choruses.includes(lyricKey(section))
-        ? { ...section, type: 'chorus' }
-        : section,
-    ),
+    sections: withChoruses.map((section, position) => {
+      if (!section.type.startsWith('verse') || !autoNamed.has(filled[position])) return section;
+      verseNumber += 1;
+      return { ...section, type: verseNumber === 1 ? 'verse' : `verse ${verseNumber}` };
+    }),
   };
+}
+
+/**
+ * Words on chord lines that are not chords: probably a chord the OCR misread
+ * ("Ag" for "A"). Returned as `"Ag" em "D  Ag  D"` for the user to check.
+ */
+export function findDoubtfulChords(lines: string[]): string[] {
+  const doubtful: string[] = [];
+  for (const line of lines) {
+    const tokens = line.trim().split(/\s+/).filter(Boolean);
+    const chords = tokens.filter((token) => isChordToken(token));
+    if (chords.length === 0 || tokens.length > 10 || chords.length * 2 < tokens.length) continue;
+    for (const token of tokens) {
+      if (isChordToken(token) || /^[|/\-–()x0-9:.,]+$/i.test(token) || token.length > 5) continue;
+      if (!/^[A-Ga-g]/.test(token) && !/\d/.test(token)) continue;
+      const entry = `"${token}" em "${line.trim().replace(/\s+/g, ' ')}"`;
+      if (!doubtful.includes(entry)) doubtful.push(entry);
+    }
+  }
+  return doubtful;
 }
 
 function median(values: number[]): number {
@@ -444,6 +506,87 @@ function deskewTokens(tokens: OcrToken[]): OcrToken[] {
   });
 }
 
+const hasWord = (tokens: OcrToken[]) =>
+  tokens.some((token) => (token.text.match(/\p{L}/gu) ?? []).length >= 3 && !isChordToken(token.text));
+
+interface ColumnRegion {
+  /** Index of the first and last line (inclusive) laid out in two columns. */
+  start: number;
+  end: number;
+  /** Horizontal position of the gutter between the columns. */
+  split: number;
+}
+
+/**
+ * Stanzas printed side by side (two columns). A gutter is a vertical band
+ * that no word crosses for several lines in a row, with words on both sides
+ * of it in at least two lyric lines. Chord lines have wide gaps too, but the
+ * lyric lines below them cross any gap that is not a real gutter.
+ */
+export function findColumnRegions(lines: OcrToken[][], lineHeight: number): ColumnRegion[] {
+  const minGap = lineHeight * 2.5;
+  const candidates: number[] = [];
+  for (const line of lines) {
+    for (let index = 1; index < line.length; index += 1) {
+      const gapStart = line[index - 1].x + line[index - 1].width;
+      if (line[index].x - gapStart >= minGap) candidates.push((gapStart + line[index].x) / 2);
+    }
+  }
+
+  const regions: ColumnRegion[] = [];
+  const tried: number[] = [];
+  for (const candidate of candidates) {
+    if (tried.some((x) => Math.abs(x - candidate) < lineHeight)) continue;
+    tried.push(candidate);
+
+    // Narrow the gutter to the band free in every line of the run.
+    let runStart = -1;
+    let twoSided = 0;
+    let gutterLeft = -Infinity;
+    let gutterRight = Infinity;
+    const close = (endIndex: number) => {
+      if (runStart >= 0 && twoSided >= 2 && endIndex - runStart >= 2 && gutterRight - gutterLeft >= lineHeight) {
+        regions.push({ start: runStart, end: endIndex, split: (gutterLeft + gutterRight) / 2 });
+      }
+      runStart = -1;
+      twoSided = 0;
+      gutterLeft = -Infinity;
+      gutterRight = Infinity;
+    };
+
+    lines.forEach((line, index) => {
+      const crosses = line.some((token) => token.x < candidate && token.x + token.width > candidate);
+      if (crosses) {
+        close(index - 1);
+        return;
+      }
+      const left = line.filter((token) => token.x + token.width <= candidate);
+      const right = line.filter((token) => token.x >= candidate);
+      if (runStart < 0) runStart = index;
+      if (left.length > 0) gutterLeft = Math.max(gutterLeft, ...left.map((token) => token.x + token.width));
+      if (right.length > 0) gutterRight = Math.min(gutterRight, ...right.map((token) => token.x));
+      if (hasWord(left) && hasWord(right)) twoSided += 1;
+    });
+    close(lines.length - 1);
+  }
+
+  // Keep the strongest regions that do not overlap.
+  const chosen: ColumnRegion[] = [];
+  for (const region of regions.sort((a, b) => b.end - b.start - (a.end - a.start))) {
+    if (chosen.every((other) => region.end < other.start || region.start > other.end)) chosen.push(region);
+  }
+  return chosen.sort((a, b) => a.start - b.start);
+}
+
+interface LaidOutRow {
+  tokens: OcrToken[];
+  grid: ColumnGrid;
+  top: number;
+  bottom: number;
+  /** First row of the right column: always starts a new stanza. */
+  breakBefore?: boolean;
+}
+
 /** Rebuilds the page as text lines, keeping horizontal positions as spaces. */
 export function tokensToTextLines(tokens: OcrToken[]): string[] {
   const usable = deskewTokens(tokens.filter((token) => token.text.trim() && token.width > 0));
@@ -453,18 +596,55 @@ export function tokensToTextLines(tokens: OcrToken[]): string[] {
 
   const grid = buildColumnGrid(usable);
   const groups = groupTokensByLine(usable);
-  const tops = groups.map((group) => Math.min(...group.map((token) => token.y)));
-  const bottoms = groups.map((group) => Math.max(...group.map((token) => token.y + token.height)));
-  const gaps = groups.slice(1).map((_, index) => tops[index + 1] - bottoms[index]);
   const lineHeight = median(usable.map((token) => token.height));
+  const row = (rowTokens: OcrToken[], rowGrid: ColumnGrid, breakBefore = false): LaidOutRow => ({
+    tokens: rowTokens,
+    grid: rowGrid,
+    top: Math.min(...rowTokens.map((token) => token.y)),
+    bottom: Math.max(...rowTokens.map((token) => token.y + token.height)),
+    breakBefore,
+  });
+
+  // Reading order: full-width lines top to bottom; inside a two-column
+  // region, the whole left column, then the whole right column.
+  const rows: LaidOutRow[] = [];
+  const regions = findColumnRegions(groups, lineHeight);
+  let index = 0;
+  while (index < groups.length) {
+    const region = regions.find((candidate) => candidate.start === index);
+    if (!region) {
+      rows.push(row(groups[index], grid));
+      index += 1;
+      continue;
+    }
+    const regionLines = groups.slice(region.start, region.end + 1);
+    const left = regionLines.map((line) => line.filter((token) => token.x < region.split));
+    const right = regionLines.map((line) => line.filter((token) => token.x >= region.split));
+    const rightTokens = right.flat();
+    const rightGrid = { ...grid, left: Math.min(...rightTokens.map((token) => token.x)) };
+    left.filter((line) => line.length > 0).forEach((line) => rows.push(row(line, grid)));
+    right
+      .filter((line) => line.length > 0)
+      .forEach((line, position) => rows.push(row(line, rightGrid, position === 0)));
+    index = region.end + 1;
+  }
+
+  const gaps = groups.slice(1).map((group, position) => {
+    const previous = groups[position];
+    return (
+      Math.min(...group.map((token) => token.y)) -
+      Math.max(...previous.map((token) => token.y + token.height))
+    );
+  });
   // A blank line between stanzas leaves a gap of about one line height;
   // lines inside a stanza are much closer.
   const breakGap = Math.max(lineHeight * 0.9, median(gaps) * 2);
 
   const lines: string[] = [];
-  groups.forEach((group, index) => {
-    if (index > 0 && gaps[index - 1] > breakGap) lines.push('');
-    const line = repairOcrChordLine(tokensToLine(group, grid));
+  rows.forEach((current, position) => {
+    const previous = rows[position - 1];
+    if (previous && (current.breakBefore || current.top - previous.bottom > breakGap)) lines.push('');
+    const line = repairOcrChordLine(tokensToLine(current.tokens, current.grid));
     if (line.trim()) lines.push(line);
   });
   return lines;
