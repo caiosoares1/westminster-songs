@@ -91,7 +91,7 @@ export default function ImportSongScreen() {
     const nextNotices: string[] = [];
     if (header) {
       nextNotices.push(
-        `Cabecalho do hinario: ${header.number} ${header.title}` +
+        `Cabecalho do hinario: ${header.number ? `${header.number} ` : ''}${header.title}` +
           (header.key ? `, tom ${header.key}` : '') +
           (header.timeSignature ? `, compasso ${header.timeSignature}` : '') +
           '.',
@@ -111,7 +111,7 @@ export default function ImportSongScreen() {
     setReviewContent(structureToBracketContent(structureJson));
 
     if (header && !title.trim()) {
-      setTitle(`${header.number} ${header.title}`);
+      setTitle(header.number ? `${header.number} ${header.title}` : header.title);
     }
     if (!category) {
       setCategory(guessCategory(header ? header.title : title, header?.number));

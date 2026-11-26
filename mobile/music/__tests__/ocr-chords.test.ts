@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { isChordToken, normalizeChordToken } from '@/music/chordParser';
+import { extractHymnHeader, parseTitleHeader } from '@/music/hymnHeader';
 import { findDoubtfulChords, parseOcrTokensToStructure, tokensToTextLines, type OcrToken } from '@/music/ocrParser';
 import { transposeChord } from '@/music/transpose';
 import { structureToBracketContent } from '@/utils/song-structure';
@@ -105,5 +106,39 @@ describe('slash chords the OCR split into pieces', () => {
     assert.match(content, /\[C\]/);
     assert.match(content, /\[G\]/);
     assert.doesNotMatch(content, /C\/G/);
+  });
+});
+
+describe('title and credits printed above the first stanza', () => {
+  const sheet: [number, number, string][] = [
+    [0, 26, 'SALMO 11'],
+    [1, 24, 'Letra: Comissão Brasileira de Salmodia'],
+    [3, 0, '            D         A6       Bm7'],
+    [4, 0, '1. Meu refúgio está em Deus.'],
+    [5, 0, '          G       D/F#  A4(7)'],
+    [6, 0, 'Como podes me dizer'],
+  ];
+
+  it('become the title, not a chorus', () => {
+    const { structure, header } = extractHymnHeader(parseOcrTokensToStructure(page(sheet)));
+    assert.deepEqual(header, { title: 'Salmo 11' });
+    const content = structureToBracketContent(structure);
+    assert.doesNotMatch(content, /SALMO|Letra|Refrão/);
+    assert.match(content, /^\[Verso\]\nMeu /);
+  });
+
+  it('a title is only taken when it stands alone in capitals', () => {
+    assert.equal(parseTitleHeader('Meu refúgio está em Deus'), null);
+    assert.equal(parseTitleHeader('SANTO, SANTO, SANTO, DEUS ONIPOTENTE, VEM NOS LOUVAR'), null);
+    assert.deepEqual(parseTitleHeader('CASTELO FORTE'), { title: 'Castelo Forte' });
+
+    const lyricsInCapitals = parseOcrTokensToStructure(
+      page([
+        [0, 0, 'C          G'],
+        [1, 0, 'SANTO, SANTO'],
+        [2, 0, 'Deus onipotente'],
+      ]),
+    );
+    assert.equal(extractHymnHeader(lyricsInCapitals).header, null);
   });
 });
