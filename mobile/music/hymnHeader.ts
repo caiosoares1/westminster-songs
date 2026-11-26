@@ -1,9 +1,10 @@
 import { renumberVerses } from '@/music/combine';
 import type { SongLine, SongStructure } from '@/services/songs';
 
-/** Heading of a hymnal page: "120 DEPENDÊNCIA. G 3/4". */
+/** Heading of a hymnal page: "120 DEPENDÊNCIA. G 3/4", or a title alone ("SALMO 11"). */
 export interface HymnHeader {
-  number: string;
+  /** Hymnal number; absent when the page has only a title. */
+  number?: string;
   /** Title in normal case: "Dependência". */
   title: string;
   key?: string;
@@ -39,6 +40,31 @@ const lineText = (line: SongLine) =>
 
 const hasChords = (line: SongLine) => line.items.some((item) => item.type === 'chord');
 
+// Credit lines under the title: "Letra: ...", "Música: ...", "Letra e música: ...".
+const CREDIT_REGEX =
+  /^(?:letra|m[úu]sica|melodia|autor(?:es|a)?|tradu[çc][ãa]o|vers[ãa]o|arranjo|arr|composi[çc][ãa]o|harmoniza[çc][ãa]o|texto|fonte|cifra)(?:\s+e\s+m[úu]sica)?\s*\.?\s*:/iu;
+
+export function isCreditLine(text: string): boolean {
+  return CREDIT_REGEX.test(text.trim());
+}
+
+// A title alone, in capitals, maybe with a number: "SALMO 11", "CASTELO FORTE".
+const TITLE_REGEX = /^[\p{L}][\p{L}'’\-,!? ]*?[\p{L}!?](?:\s+\d{1,3}[A-Za-z]?)?\.?$/u;
+
+/** Reads a title printed alone ("SALMO 11"); it must be in capitals. */
+export function parseTitleHeader(text: string): HymnHeader | null {
+  const trimmed = text.trim();
+  if (!TITLE_REGEX.test(trimmed) || trimmed.split(/\s+/).length > 6) {
+    return null;
+  }
+  const letters = trimmed.replace(/[^\p{L}]/gu, '');
+  const capitals = letters.replace(/[^\p{Lu}]/gu, '').length;
+  if (letters.length < 3 || capitals / letters.length < 0.8) {
+    return null;
+  }
+  return { title: toTitleCase(trimmed.replace(/[.,]+$/, '')) };
+}
+
 /** "3/4"; OCR often loses the slash ("34", "68", "128"). */
 function formatTimeSignature(raw: string): string {
   const digits = raw.replace(/\s+/g, '');
@@ -69,24 +95,49 @@ export function parseHymnHeader(text: string): HymnHeader | null {
 /**
  * Finds the hymn heading in the first lines of the sheet and takes it out
  * of the lyrics, with whatever came before it (the end of the previous hymn
- * on the same page).
+ * on the same page). A title printed alone ("SALMO 11", set apart from the
+ * first stanza) also counts, and credit lines ("Letra: ...") go too.
  */
 export function extractHymnHeader(structure: SongStructure): {
   structure: SongStructure;
   header: HymnHeader | null;
 } {
-  for (const [sectionIndex, section] of structure.sections.slice(0, 2).entries()) {
+  // Credit lines among the first lines of the sheet.
+  let sections = structure.sections.map((section, sectionIndex) =>
+    sectionIndex > 1
+      ? section
+      : {
+          ...section,
+          lines: section.lines.filter(
+            (line, lineIndex) => lineIndex >= 4 || hasChords(line) || !isCreditLine(lineText(line)),
+          ),
+        },
+  );
+  const creditsRemoved = sections.some((section, index) => section.lines.length !== structure.sections[index].lines.length);
+
+  let header: HymnHeader | null = null;
+  search: for (const [sectionIndex, section] of sections.slice(0, 2).entries()) {
     for (const [lineIndex, line] of section.lines.slice(0, 3).entries()) {
       if (hasChords(line)) continue;
-      const header = parseHymnHeader(lineText(line));
-      if (!header) continue;
+      const found = parseHymnHeader(lineText(line));
+      if (!found) continue;
+      header = found;
       const rest = section.lines.slice(lineIndex + 1);
-      const sections = [
-        ...(rest.length > 0 ? [{ ...section, lines: rest }] : []),
-        ...structure.sections.slice(sectionIndex + 1),
-      ];
-      return { structure: renumberVerses({ ...structure, sections }), header };
+      sections = [...(rest.length > 0 ? [{ ...section, lines: rest }] : []), ...sections.slice(sectionIndex + 1)];
+      break search;
     }
   }
-  return { structure, header: null };
+
+  // Title alone: the first section is just that line.
+  const first = sections[0];
+  if (!header && first?.lines.length === 1 && sections.length > 1 && !hasChords(first.lines[0])) {
+    header = parseTitleHeader(lineText(first.lines[0]));
+    if (header) sections = sections.slice(1);
+  }
+
+  if (!header && !creditsRemoved) {
+    return { structure, header: null };
+  }
+  const filled = sections.filter((section) => section.lines.length > 0);
+  return { structure: renumberVerses({ ...structure, sections: filled }), header };
 }
