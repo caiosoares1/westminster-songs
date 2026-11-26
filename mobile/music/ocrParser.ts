@@ -408,10 +408,46 @@ function buildColumnGrid(tokens: OcrToken[]): ColumnGrid {
   return { left, charWidth: Math.max(1, median(widths.length > 0 ? widths : fallback)) };
 }
 
+/**
+ * Puts back together a slash chord the OCR split into pieces ("A" "/" "E",
+ * "A/" "E", "A" "/E"). Only pieces that touch are joined: "C / G" with
+ * spaces is a chord, a beat mark and another chord.
+ */
+export function mergeSlashChordPieces(tokens: OcrToken[], charWidth: number): OcrToken[] {
+  const merged: OcrToken[] = [];
+  for (const token of [...tokens].sort((a, b) => a.x - b.x)) {
+    const previous = merged[merged.length - 1];
+    if (previous) {
+      const gap = token.x - (previous.x + previous.width);
+      const left = previous.text.trim();
+      const right = token.text.trim();
+      const joined = `${left}${right}`;
+      // A trailing "/" ("A/") can only belong to the next note, so it may sit
+      // a bit farther than pieces that would be complete on their own.
+      const maxGap = charWidth * (left.endsWith('/') ? 1.2 : 0.4);
+      const joins =
+        gap <= maxGap &&
+        (left.endsWith('/') || right.startsWith('/')) &&
+        (right === '/' ? isChordToken(left) && !left.includes('/') : isChordToken(joined) && joined.includes('/'));
+      if (joins) {
+        merged[merged.length - 1] = {
+          ...previous,
+          text: joined,
+          width: token.x + token.width - previous.x,
+          height: Math.max(previous.height, token.height),
+        };
+        continue;
+      }
+    }
+    merged.push(token);
+  }
+  return merged;
+}
+
 function tokensToLine(tokens: OcrToken[], grid: ColumnGrid): string {
   let line = '';
 
-  for (const token of [...tokens].sort((a, b) => a.x - b.x)) {
+  for (const token of mergeSlashChordPieces(tokens, grid.charWidth)) {
     const text = token.text.trim();
     if (!text) {
       continue;

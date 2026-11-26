@@ -48,12 +48,16 @@ export function canonicalizeChord(chord: string): string {
 }
 
 export function normalizeChordToken(token: string): string {
-  return token
+  const stripped = token
     .trim()
     .replace(/♯/g, '#')
     .replace(/♭/g, 'b')
     .replace(/º/g, '°')
     .replace(TOKEN_EDGE_PUNCTUATION, '');
+  // The edge cleanup also takes the ")" that closes a suffix ("A4(7)" ->
+  // "A4(7"); put it back. Also fixes a ")" the OCR missed.
+  const unclosed = (stripped.match(/\(/g) ?? []).length - (stripped.match(/\)/g) ?? []).length;
+  return unclosed > 0 ? stripped + ')'.repeat(unclosed) : stripped;
 }
 
 export function isChordToken(token: string): boolean {
